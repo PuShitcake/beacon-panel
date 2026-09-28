@@ -37,5 +37,6 @@ result
 
 # Local agent instructions and private design references.
 /AGENTS.md
+/FORK_IMPLEMENTATION_PLAN.md
 /ref/
 /.tools/

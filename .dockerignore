@@ -2,6 +2,7 @@
 .env*
 !.env.example
 AGENTS.md
+FORK_IMPLEMENTATION_PLAN.md
 .tools
 .vscode
 .idea
