@@ -6,6 +6,7 @@ use Pterodactyl\Http\Controllers\Api\Client;
 use Pterodactyl\Http\Middleware\Activity\ServerSubject;
 use Pterodactyl\Http\Middleware\Activity\AccountSubject;
 use Pterodactyl\Http\Middleware\RequireTwoFactorAuthentication;
+use Pterodactyl\Http\Middleware\Api\Beacon\RequireBeaconRequestMetadata;
 use Pterodactyl\Http\Middleware\Api\Client\Server\ResourceBelongsToServer;
 use Pterodactyl\Http\Middleware\Api\Client\Server\AuthenticateServerAccess;
 
@@ -68,6 +69,25 @@ Route::group([
         ->name('api:client:server.ws');
     Route::get('/resources', Client\Servers\ResourceUtilizationController::class)->name('api:client:server.resources');
     Route::get('/activity', Client\Servers\ActivityLogController::class)->name('api:client:server.activity');
+
+    Route::get('/beacon/configuration', [Client\Servers\BeaconConfigurationController::class, 'show']);
+    Route::put('/beacon/configuration', [Client\Servers\BeaconConfigurationController::class, 'update']);
+
+    Route::group([
+        'prefix' => '/beacon/content',
+        'middleware' => [RequireBeaconRequestMetadata::class, 'throttle:api.beacon.content'],
+    ], function () {
+        Route::get('/context', [Client\Servers\BeaconContentController::class, 'context']);
+        Route::get('/installations', [Client\Servers\BeaconContentController::class, 'index']);
+        Route::get('/search', [Client\Servers\BeaconContentController::class, 'search']);
+        Route::get('/projects/{projectId}/versions', [Client\Servers\BeaconContentController::class, 'versions']);
+        Route::get('/plan', [Client\Servers\BeaconContentController::class, 'plan']);
+        Route::get('/operations/{operationUuid}', [Client\Servers\BeaconContentController::class, 'operation']);
+        Route::post('/install', [Client\Servers\BeaconContentController::class, 'install'])
+            ->name('api:beacon.content.install');
+        Route::delete('/installations/{installationId}', [Client\Servers\BeaconContentController::class, 'remove'])
+            ->name('api:beacon.content.uninstall');
+    });
 
     Route::post('/command', [Client\Servers\CommandController::class, 'index']);
     Route::post('/power', [Client\Servers\PowerController::class, 'index']);

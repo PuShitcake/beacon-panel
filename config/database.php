@@ -37,12 +37,11 @@ return [
     'connections' => [
         'mysql' => [
             'driver' => 'mysql',
-            'url' => env('DB_URL', env('DATABASE_URL')),
-            'host' => env('DB_HOST', '127.0.0.1'),
+            'host' => env('DB_HOST'),
             'port' => env('DB_PORT', '3306'),
-            'database' => env('DB_DATABASE', 'panel'),
-            'username' => env('DB_USERNAME', 'pterodactyl'),
-            'password' => env('DB_PASSWORD', ''),
+            'database' => env('DB_DATABASE'),
+            'username' => env('DB_USERNAME'),
+            'password' => env('DB_PASSWORD'),
             'unix_socket' => env('DB_SOCKET', ''),
             'charset' => env('DB_CHARSET', 'utf8mb4'),
             'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
@@ -62,12 +61,11 @@ return [
 
         'mariadb' => [
             'driver' => 'mariadb',
-            'url' => env('DB_URL', env('DATABASE_URL')),
-            'host' => env('DB_HOST', '127.0.0.1'),
+            'host' => env('DB_HOST'),
             'port' => env('DB_PORT', '3306'),
-            'database' => env('DB_DATABASE', 'panel'),
-            'username' => env('DB_USERNAME', 'pterodactyl'),
-            'password' => env('DB_PASSWORD', ''),
+            'database' => env('DB_DATABASE'),
+            'username' => env('DB_USERNAME'),
+            'password' => env('DB_PASSWORD'),
             'unix_socket' => env('DB_SOCKET', ''),
             'charset' => env('DB_CHARSET', 'utf8mb4'),
             'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),

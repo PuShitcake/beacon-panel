@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\RateLimiter;
 use Pterodactyl\Http\Middleware\TrimStrings;
 use Pterodactyl\Http\Middleware\AdminAuthenticate;
 use Pterodactyl\Http\Middleware\RequireTwoFactorAuthentication;
+use Pterodactyl\Http\Middleware\Api\Beacon\RequireBeaconApplicationKey;
+use Pterodactyl\Http\Middleware\Api\Beacon\RequireBeaconRequestMetadata;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 
 class RouteServiceProvider extends ServiceProvider
@@ -52,6 +54,15 @@ class RouteServiceProvider extends ServiceProvider
                     ->prefix('/api/application')
                     ->scopeBindings()
                     ->group(base_path('routes/api-application.php'));
+
+                Route::middleware([
+                    'application-api',
+                    RequireBeaconApplicationKey::class,
+                    RequireBeaconRequestMetadata::class,
+                    'throttle:api.beacon',
+                ])->prefix('/api/beacon/v1')
+                    ->scopeBindings()
+                    ->group(base_path('routes/api-beacon.php'));
 
                 Route::middleware(['client-api', 'throttle:api.client'])
                     ->prefix('/api/client')
@@ -105,6 +116,24 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinutes(
                 config('http.rate_limit.application_period'),
                 config('http.rate_limit.application')
+            )->by($key);
+        });
+
+        RateLimiter::for('api.beacon', function (Request $request) {
+            $key = $request->user()?->currentAccessToken()?->id ?: $request->ip();
+
+            return Limit::perMinutes(
+                config('beacon.rate_limit.api_period'),
+                config('beacon.rate_limit.api')
+            )->by($key);
+        });
+
+        RateLimiter::for('api.beacon.content', function (Request $request) {
+            $key = optional($request->user())->uuid ?: $request->ip();
+
+            return Limit::perMinutes(
+                config('beacon.rate_limit.content_period'),
+                config('beacon.rate_limit.content')
             )->by($key);
         });
 

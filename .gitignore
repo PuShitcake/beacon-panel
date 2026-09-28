@@ -18,10 +18,9 @@ _ide_helper_models.php
 .yarn
 public/assets/manifest.json
 
-# For local development with docker
-# Remove if we ever put the Dockerfile in the repo
-.dockerignore
+# Docker deployment files are tracked for the Beacon production image.
 docker-compose.*
+!docker-compose.yml
 !docker-compose.example.yml
 !docker-compose.example.yaml
 
@@ -35,3 +34,8 @@ resources/lang/locales.js
 /public/build
 /public/hot
 result
+
+# Local agent instructions and private design references.
+/AGENTS.md
+/ref/
+/.tools/

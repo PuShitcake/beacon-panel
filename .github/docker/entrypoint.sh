@@ -5,40 +5,44 @@ mkdir -p /var/log/panel/logs/ /var/log/supervisord/ /var/log/nginx/ /var/log/php
   && chmod 777 /var/log/panel/logs/ \
   && ln -s /app/storage/logs/ /var/log/panel/
 
-## check for .env file and generate app keys if missing
+## Reuse persisted secrets, but never invent encryption material at runtime.
 if [ -f /app/var/.env ]; then
   echo "external vars exist."
-  rm -rf /app/.env
+  if ! grep -q '^APP_KEY=.' /app/var/.env && [ -z "${APP_KEY:-}" ]; then
+    echo "APP_KEY is required and is missing from both the environment and /app/var/.env." >&2
+    exit 1
+  fi
+  if ! grep -q '^HASHIDS_SALT=.' /app/var/.env && [ -z "${HASHIDS_SALT:-}" ]; then
+    echo "HASHIDS_SALT is required and is missing from both the environment and /app/var/.env." >&2
+    exit 1
+  fi
+  rm -f /app/.env
   ln -s /app/var/.env /app/
 else
   echo "external vars don't exist."
-  rm -rf /app/.env
-  touch /app/var/.env
-
-  ## manually generate a key because key generate --force fails
-  if [ -z $APP_KEY ]; then
-     echo -e "Generating key."
-     APP_KEY=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
-     echo -e "Generated app key: $APP_KEY"
-     echo -e "APP_KEY=$APP_KEY" > /app/var/.env
-  else
-    echo -e "APP_KEY exists in environment, using that."
-    echo -e "APP_KEY=$APP_KEY" > /app/var/.env
+  if [ -z "${APP_KEY:-}" ]; then
+    echo "APP_KEY must be provided on the first container start." >&2
+    exit 1
+  fi
+  if [ -z "${HASHIDS_SALT:-}" ]; then
+    echo "HASHIDS_SALT must be provided on the first container start." >&2
+    exit 1
   fi
 
-  ## generate a random salt for hashids if not provided
-  if [ -z $HASHIDS_SALT ]; then
-     echo -e "Generating hashids salt."
-     HASHIDS_SALT=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9!@#$%^&*()_+?><~' | fold -w 20 | head -n 1)
-     echo -e "Generated hashids salt: $HASHIDS_SALT"
-     echo -e "HASHIDS_SALT=$HASHIDS_SALT" >> /app/var/.env
-  else
-    echo -e "HASHIDS_SALT exists in environment, using that."
-    echo -e "HASHIDS_SALT=$HASHIDS_SALT" >> /app/var/.env
-  fi
-
+  rm -f /app/.env
+  umask 027
+  printf 'APP_KEY=%s\nHASHIDS_SALT=%s\n' "$APP_KEY" "$HASHIDS_SALT" > /app/var/.env
+  chown nginx:nginx /app/var/.env
   ln -s /app/var/.env /app/
 fi
+
+for variable in DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD REDIS_HOST; do
+  value="$(printenv "$variable" || true)"
+  if [ -z "$value" ]; then
+    echo "$variable must be provided; refusing to start with an implicit runtime configuration." >&2
+    exit 1
+  fi
+done
 
 echo "Checking if https is required."
 if [ -f /etc/nginx/http.d/panel.conf ]; then
@@ -66,7 +70,7 @@ else
   rm -rf /etc/nginx/http.d/default.conf
 fi
 
-if [[ -z $DB_PORT ]]; then
+if [ -z "${DB_PORT:-}" ]; then
   echo -e "DB_PORT not specified, defaulting to 3306"
   DB_PORT=3306
 fi
@@ -80,7 +84,7 @@ fi
 
 ## check for DB up before starting the panel
 echo "Checking database status."
-until nc -z -v -w30 $DB_HOST $DB_PORT
+until nc -z -v -w30 "$DB_HOST" "$DB_PORT"
 do
   echo "Waiting for database connection..."
   # wait for 1 seconds before check again

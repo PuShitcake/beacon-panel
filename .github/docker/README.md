@@ -33,6 +33,8 @@ Note: If your `APP_URL` starts with `https://` you need to provide an `LE_EMAIL`
 | ------------------- | ------------------------------------------------------------------------------ | -------- |
 | `APP_URL`           | The URL the panel will be reachable with (including protocol)                  | yes      |
 | `APP_TIMEZONE`      | The timezone to use for the panel                                              | yes      |
+| `APP_KEY`           | Stable Laravel encryption key; never generated automatically                   | yes      |
+| `HASHIDS_SALT`      | Stable salt used for public identifiers; never generated automatically         | yes      |
 | `LE_EMAIL`          | The email used for letsencrypt certificate generation                          | yes      |
 | `DB_HOST`           | The host of the mysql instance                                                 | yes      |
 | `DB_PORT`           | The port of the mysql instance                                                 | yes      |
@@ -52,6 +54,11 @@ Note: If your `APP_URL` starts with `https://` you need to provide an `LE_EMAIL`
 | `MAIL_USERNAME`     | The username for your mail driver                                              | maybe    |
 | `MAIL_PASSWORD`     | The password for your mail driver                                              | maybe    |
 
+`APP_KEY`, `HASHIDS_SALT`, `REDIS_HOST`, and all required database variables must be provided on
+the first container start. The image exits instead of generating secrets or guessing service
+targets.
+Database connection URLs are not used as an implicit fallback; configure the explicit `DB_*`
+variables listed above.
 
 ### Cache drivers
 You can choose between different cache drivers depending on what you prefer.

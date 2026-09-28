@@ -3,11 +3,13 @@ x-common:
     &db-environment
     # Do not remove the "&db-password" from the end of the line below, it is important
     # for Panel functionality.
-    MYSQL_PASSWORD: &db-password "CHANGE_ME"
-    MYSQL_ROOT_PASSWORD: "CHANGE_ME_TOO"
+    MYSQL_PASSWORD: &db-password "${DB_PASSWORD:?DB_PASSWORD must be set}"
+    MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set}"
   panel:
     &panel-environment
     APP_URL: "http://example.com"
+    APP_KEY: "${APP_KEY:?APP_KEY must be set}"
+    HASHIDS_SALT: "${HASHIDS_SALT:?HASHIDS_SALT must be set}"
     # A list of valid timezones can be found here: http://php.net/manual/en/timezones.php
     APP_TIMEZONE: "UTC"
     APP_SERVICE_AUTHOR: "noreply@example.com"
