@@ -20,7 +20,7 @@ import { ServerBackup } from '@/api/server/types';
 import { ServerContext } from '@/state/server';
 import Input from '@/components/elements/Input';
 import { restoreServerBackup } from '@/api/server/backups';
-import http, { httpErrorToHuman } from '@/api/http';
+import http from '@/api/http';
 import { Dialog } from '@/components/elements/dialog';
 
 interface Props {
@@ -96,6 +96,7 @@ export default ({ backup }: Props) => {
             return setModal('unlock');
         }
 
+        clearFlashes('backups');
         http.post(`/api/client/servers/${uuid}/backups/${backup.uuid}/lock`)
             .then(() =>
                 mutate(
@@ -113,7 +114,10 @@ export default ({ backup }: Props) => {
                     false
                 )
             )
-            .catch((error) => alert(httpErrorToHuman(error)))
+            .catch((error) => {
+                console.error(error);
+                clearAndAddHttpError({ key: 'backups', error });
+            })
             .then(() => setModal(''));
     };
 

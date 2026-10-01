@@ -1,0 +1,2 @@
+.github/docker/*.sh text eol=lf
+.github/docker/*.conf text eol=lf

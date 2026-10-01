@@ -3,7 +3,7 @@ name: Docker
 on:
   push:
     branches:
-      - 1.0-develop
+      - main
   release:
     types:
       - published
@@ -24,7 +24,7 @@ jobs:
         id: docker_meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/pterodactyl/panel
+          images: ghcr.io/pushitcake/beacon-panel
           flavor: |
             latest=false
           tags: |

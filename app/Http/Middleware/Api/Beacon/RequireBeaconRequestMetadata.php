@@ -17,7 +17,7 @@ class RequireBeaconRequestMetadata
             throw ValidationException::withMessages(['X-Correlation-ID' => 'A valid X-Correlation-ID UUID header is required for mutations.']);
         }
 
-        if ($request->routeIs('api:beacon.servers.store', 'api:beacon.content.install', 'api:beacon.content.uninstall')) {
+        if (!$request->isMethodSafe()) {
             $idempotencyKey = $request->header('Idempotency-Key');
             if (!is_string($idempotencyKey) || !preg_match('/^[A-Za-z0-9._:-]{16,128}$/', $idempotencyKey)) {
                 throw ValidationException::withMessages(['Idempotency-Key' => 'An Idempotency-Key header containing 16 to 128 safe characters is required.']);

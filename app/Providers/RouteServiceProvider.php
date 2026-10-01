@@ -137,6 +137,15 @@ class RouteServiceProvider extends ServiceProvider
             )->by($key);
         });
 
+        RateLimiter::for('api.beacon.poll', function (Request $request) {
+            $key = optional($request->user())->uuid ?: $request->ip();
+
+            return Limit::perMinutes(
+                config('beacon.rate_limit.poll_period'),
+                config('beacon.rate_limit.poll')
+            )->by($key);
+        });
+
         ResourceLimit::boot();
     }
 }

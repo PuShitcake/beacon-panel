@@ -6,6 +6,7 @@ use Pterodactyl\Tests\TestCase;
 use Pterodactyl\Jobs\Beacon\RemoveContentJob;
 use Pterodactyl\Jobs\Beacon\InstallContentJob;
 use Pterodactyl\Jobs\Beacon\CreateCatalogServerJob;
+use Pterodactyl\Jobs\Beacon\ProcessModpackOperationJob;
 
 class BeaconJobContractTest extends TestCase
 {
@@ -15,6 +16,7 @@ class BeaconJobContractTest extends TestCase
             CreateCatalogServerJob::class,
             InstallContentJob::class,
             RemoveContentJob::class,
+            ProcessModpackOperationJob::class,
         ] as $jobClass) {
             $job = new $jobClass(1);
 

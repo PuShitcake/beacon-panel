@@ -95,6 +95,11 @@ done
 echo -e "Migrating and Seeding D.B"
 php artisan migrate --seed --force
 
+## Artisan runs as root during container startup and can recreate framework
+## cache files. Hand runtime-owned paths back to the unprivileged web/queue
+## user before supervisord starts those processes.
+chown -R nginx:nginx /app/bootstrap/cache /app/storage
+
 ## start cronjobs for the queue
 echo -e "Starting cron jobs."
 crond -L /var/log/crond -l 5

@@ -11,6 +11,7 @@ import Select from '@/components/elements/Select';
 import Button from '@/components/elements/Button';
 import Spinner from '@/components/elements/Spinner';
 import Can from '@/components/elements/Can';
+import { Dialog } from '@/components/elements/dialog';
 import {
     BeaconContentContext,
     BeaconInstallation,
@@ -39,6 +40,7 @@ const ContentContainer = () => {
     const [project, setProject] = useState<BeaconProject>();
     const [version, setVersion] = useState('');
     const [plan, setPlan] = useState<BeaconInstallPlan>();
+    const [pendingRemoval, setPendingRemoval] = useState<BeaconInstallation | null>(null);
     const [loading, setLoading] = useState(true);
     const [working, setWorking] = useState(false);
 
@@ -129,7 +131,7 @@ const ContentContainer = () => {
     };
 
     const remove = async (installation: BeaconInstallation) => {
-        if (!window.confirm(`Remove ${installation.filename}?`)) return;
+        setPendingRemoval(null);
         setWorking(true);
         clearFlashes('beacon-content');
         try {
@@ -147,6 +149,20 @@ const ContentContainer = () => {
     return (
         <ServerContentBlock title={'Content'}>
             <FlashMessageRender byKey={'beacon-content'} css={tw`mb-4`} />
+            <Dialog.Confirm
+                title={'Remove installed content?'}
+                confirm={'Remove content'}
+                open={pendingRemoval !== null}
+                onConfirmed={() => pendingRemoval && void remove(pendingRemoval)}
+                onClose={() => setPendingRemoval(null)}
+            >
+                <Dialog.Icon type={'danger'} position={'container'} className={'!w-8 !h-8 !mr-3'} />
+                <p className={'text-sm text-gray-200 leading-relaxed'}>
+                    {pendingRemoval
+                        ? `${pendingRemoval.filename} will be removed from this server. This action cannot be undone.`
+                        : ''}
+                </p>
+            </Dialog.Confirm>
             {!context?.enabled ? (
                 <ContentBox title={'Managed content unavailable'}>
                     <p css={tw`text-sm text-neutral-300`}>
@@ -262,7 +278,7 @@ const ContentContainer = () => {
                                             type={'button'}
                                             color={'red'}
                                             size={'xsmall'}
-                                            onClick={() => remove(item)}
+                                            onClick={() => setPendingRemoval(item)}
                                             disabled={working}
                                         >
                                             Remove

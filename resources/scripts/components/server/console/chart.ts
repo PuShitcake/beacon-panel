@@ -102,6 +102,26 @@ function getEmptyData(label: string, sets = 1, callback?: ChartDatasetCallback |
 
 const merge = deepmergeCustom({ mergeArrays: false });
 
+type ChartItems = number | null | (number | null)[];
+
+function pushChartData(state: ChartData<'line'>, items: ChartItems): ChartData<'line'> {
+    return merge(state, {
+        datasets: (Array.isArray(items) ? items : [items]).map((item, index) => ({
+            ...state.datasets[index],
+            data: state.datasets[index].data.slice(1).concat(typeof item === 'number' ? Number(item.toFixed(2)) : item),
+        })),
+    });
+}
+
+function clearChartData(state: ChartData<'line'>): ChartData<'line'> {
+    return merge(state, {
+        datasets: state.datasets.map((value) => ({
+            ...value,
+            data: Array(20).fill(-5),
+        })),
+    });
+}
+
 interface UseChartOptions {
     sets: number;
     options?: DeepPartial<ChartOptions<'line'>> | number | undefined;
@@ -114,27 +134,9 @@ function useChart(label: string, opts?: UseChartOptions) {
     );
     const [data, setData] = useState(getEmptyData(label, opts?.sets || 1, opts?.callback));
 
-    const push = (items: number | null | (number | null)[]) =>
-        setData((state) =>
-            merge(state, {
-                datasets: (Array.isArray(items) ? items : [items]).map((item, index) => ({
-                    ...state.datasets[index],
-                    data: state.datasets[index].data
-                        .slice(1)
-                        .concat(typeof item === 'number' ? Number(item.toFixed(2)) : item),
-                })),
-            })
-        );
+    const push = (items: ChartItems) => setData((state) => pushChartData(state, items));
 
-    const clear = () =>
-        setData((state) =>
-            merge(state, {
-                datasets: state.datasets.map((value) => ({
-                    ...value,
-                    data: Array(20).fill(-5),
-                })),
-            })
-        );
+    const clear = () => setData((state) => clearChartData(state));
 
     return { props: { data, options }, push, clear };
 }
@@ -157,4 +159,4 @@ function useChartTickLabel(label: string, max: number, tickLabel: string, roundT
     });
 }
 
-export { useChart, useChartTickLabel, getOptions, getEmptyData };
+export { useChart, useChartTickLabel, getOptions, getEmptyData, pushChartData, clearChartData };

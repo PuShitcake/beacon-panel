@@ -75,18 +75,47 @@ Route::group([
 
     Route::group([
         'prefix' => '/beacon/content',
-        'middleware' => [RequireBeaconRequestMetadata::class, 'throttle:api.beacon.content'],
+        'middleware' => RequireBeaconRequestMetadata::class,
     ], function () {
-        Route::get('/context', [Client\Servers\BeaconContentController::class, 'context']);
-        Route::get('/installations', [Client\Servers\BeaconContentController::class, 'index']);
-        Route::get('/search', [Client\Servers\BeaconContentController::class, 'search']);
-        Route::get('/projects/{projectId}/versions', [Client\Servers\BeaconContentController::class, 'versions']);
-        Route::get('/plan', [Client\Servers\BeaconContentController::class, 'plan']);
-        Route::get('/operations/{operationUuid}', [Client\Servers\BeaconContentController::class, 'operation']);
-        Route::post('/install', [Client\Servers\BeaconContentController::class, 'install'])
-            ->name('api:beacon.content.install');
-        Route::delete('/installations/{installationId}', [Client\Servers\BeaconContentController::class, 'remove'])
-            ->name('api:beacon.content.uninstall');
+        Route::middleware('throttle:api.beacon.content')->group(function () {
+            Route::get('/context', [Client\Servers\BeaconContentController::class, 'context']);
+            Route::get('/installations', [Client\Servers\BeaconContentController::class, 'index']);
+            Route::get('/search', [Client\Servers\BeaconContentController::class, 'search']);
+            Route::get('/projects/{projectId}/versions', [Client\Servers\BeaconContentController::class, 'versions']);
+            Route::get('/plan', [Client\Servers\BeaconContentController::class, 'plan']);
+            Route::post('/install', [Client\Servers\BeaconContentController::class, 'install'])
+                ->name('api:beacon.content.install');
+            Route::delete('/installations/{installationId}', [Client\Servers\BeaconContentController::class, 'remove'])
+                ->name('api:beacon.content.uninstall');
+        });
+
+        Route::get('/operations/{operationUuid}', [Client\Servers\BeaconContentController::class, 'operation'])
+            ->middleware('throttle:api.beacon.poll')
+            ->name('api:beacon.content.operation');
+    });
+
+    Route::group(['prefix' => '/beacon/modpacks'], function () {
+        Route::middleware('throttle:api.beacon.content')->group(function () {
+            Route::get('/context', [Client\Servers\BeaconModpackController::class, 'context'])
+                ->name('api:beacon.modpacks.context');
+            Route::get('/search', [Client\Servers\BeaconModpackController::class, 'search']);
+            Route::get('/providers/{provider}/projects/{projectId}/versions', [Client\Servers\BeaconModpackController::class, 'versions']);
+            Route::get('/history', [Client\Servers\BeaconModpackController::class, 'history'])
+                ->name('api:beacon.modpacks.history');
+
+            Route::middleware(RequireBeaconRequestMetadata::class)->group(function () {
+                Route::post('/install', [Client\Servers\BeaconModpackController::class, 'install']);
+                Route::post('/operations/{operationUuid}/retry', [Client\Servers\BeaconModpackController::class, 'retry']);
+                Route::post('/installations/{installationId}/update', [Client\Servers\BeaconModpackController::class, 'update']);
+                Route::post('/installations/{installationId}/reinstall', [Client\Servers\BeaconModpackController::class, 'reinstall']);
+                Route::post('/installations/{installationId}/restore', [Client\Servers\BeaconModpackController::class, 'restore']);
+                Route::delete('/installations/{installationId}', [Client\Servers\BeaconModpackController::class, 'uninstall']);
+            });
+        });
+
+        Route::get('/operations/{operationUuid}', [Client\Servers\BeaconModpackController::class, 'operation'])
+            ->middleware('throttle:api.beacon.poll')
+            ->name('api:beacon.modpacks.operation');
     });
 
     Route::post('/command', [Client\Servers\CommandController::class, 'index']);

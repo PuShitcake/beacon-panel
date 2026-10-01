@@ -17,6 +17,17 @@ class AuthenticateServerAccess
     ];
 
     /**
+     * Read-only Beacon progress endpoints that must remain available while Wings is
+     * installing an Egg or restoring a backup for the operation being observed.
+     */
+    protected array $beaconTransitionReadRoutes = [
+        'api:beacon.content.operation',
+        'api:beacon.modpacks.context',
+        'api:beacon.modpacks.history',
+        'api:beacon.modpacks.operation',
+    ];
+
+    /**
      * AuthenticateServerAccess constructor.
      */
     public function __construct()
@@ -55,7 +66,7 @@ class AuthenticateServerAccess
                 if (($server->isSuspended() || $server->node->isUnderMaintenance()) && !$request->routeIs('api:client:server.resources')) {
                     throw $exception;
                 }
-                if (!$user->root_admin || !$request->routeIs($this->except)) {
+                if (!$this->canReadBeaconTransition($request, $server) && (!$user->root_admin || !$request->routeIs($this->except))) {
                     throw $exception;
                 }
             }
@@ -64,5 +75,17 @@ class AuthenticateServerAccess
         $request->attributes->set('server', $server);
 
         return $next($request);
+    }
+
+    private function canReadBeaconTransition(Request $request, Server $server): bool
+    {
+        return $request->isMethod('GET')
+            && $request->routeIs($this->beaconTransitionReadRoutes)
+            && is_null($server->transfer)
+            && in_array($server->status, [
+                Server::STATUS_INSTALLING,
+                Server::STATUS_INSTALL_FAILED,
+                Server::STATUS_RESTORING_BACKUP,
+            ], true);
     }
 }

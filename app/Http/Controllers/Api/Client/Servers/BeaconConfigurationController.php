@@ -38,7 +38,7 @@ class BeaconConfigurationController extends ClientApiController
             if (!is_string($state) || $state === '') {
                 throw new ConflictHttpException('Wings did not return a valid server state. No configuration was changed.');
             }
-            if ($state !== 'stopped') {
+            if ($state !== 'offline') {
                 throw new ConflictHttpException('Stop the server before changing Minecraft configuration.');
             }
         }
