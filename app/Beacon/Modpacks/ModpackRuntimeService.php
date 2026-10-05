@@ -105,7 +105,9 @@ class ModpackRuntimeService
 
     private function installerEgg(): Egg
     {
+        $nest = $this->beaconNest();
         $egg = Egg::query()
+            ->where('nest_id', $nest->id)
             ->where('author', config('beacon.modpacks.nest.author'))
             ->where('name', config('beacon.modpacks.nest.installer_egg'))
             ->first();
@@ -122,15 +124,23 @@ class ModpackRuntimeService
         if (!is_string($name) || $name === '') {
             throw new ModpackProviderException("No runtime Egg is configured for the {$loader} loader.");
         }
-        $minecraft = Nest::query()->where('name', 'Minecraft')->first();
-        $egg = $minecraft instanceof Nest
-            ? Egg::query()->where('nest_id', $minecraft->id)->where('name', $name)->first()
-            : null;
+        $nest = $this->beaconNest();
+        $egg = Egg::query()->where('nest_id', $nest->id)->where('name', $name)->first();
         if (!$egg instanceof Egg) {
-            throw new ModpackProviderException("The configured Minecraft runtime Egg '{$name}' is not installed.");
+            throw new ModpackProviderException("The configured Beacon runtime Egg '{$name}' is not installed.");
         }
 
         return $egg;
+    }
+
+    private function beaconNest(): Nest
+    {
+        $nest = Nest::query()->where('name', config('beacon.modpacks.nest.name'))->first();
+        if (!$nest instanceof Nest) {
+            throw new ModpackProviderException('The Beacon nest is missing. Run the database seeders.');
+        }
+
+        return $nest;
     }
 
     private function switch(Server $server, Egg $egg, string $image, ?string $startup, array $environment): Server

@@ -83,7 +83,7 @@ class BeaconModpackInstallerContractTest extends TestCase
         $restore->invoke($job, $files, ['preserved_paths' => $preserved], 'operation-uuid');
     }
 
-    public function testRuntimeSelectsLoaderLaunchJarForSharedMinecraftEggs(): void
+    public function testRuntimeSelectsLoaderLaunchJarForBeaconRuntimeEggs(): void
     {
         $service = (new \ReflectionClass(ModpackRuntimeService::class))->newInstanceWithoutConstructor();
         $method = new \ReflectionMethod(ModpackRuntimeService::class, 'serverJarFile');
@@ -138,5 +138,24 @@ class BeaconModpackInstallerContractTest extends TestCase
         $data = $method->invoke($controller, $operation);
         $this->assertFalse($data['delete_files']);
         $this->assertSame('install', $data['history_label']);
+    }
+
+    public function testModpackReleaseMustDeclareAndMatchTheSelectedSoftwareLoader(): void
+    {
+        $controller = (new \ReflectionClass(BeaconModpackController::class))->newInstanceWithoutConstructor();
+        $method = new \ReflectionMethod(BeaconModpackController::class, 'assertReleaseCompatible');
+        $capabilities = ['name' => 'Forge', 'modpack_loaders' => ['forge']];
+
+        $method->invoke($controller, $capabilities, ['loader' => 'forge']);
+        $this->addToAssertionCount(1);
+
+        foreach ([['loader' => 'fabric'], ['loader' => null]] as $release) {
+            try {
+                $method->invoke($controller, $capabilities, $release);
+                $this->fail('An incompatible or missing modpack loader was accepted.');
+            } catch (\Symfony\Component\HttpKernel\Exception\ConflictHttpException $exception) {
+                $this->assertNotSame('', $exception->getMessage());
+            }
+        }
     }
 }

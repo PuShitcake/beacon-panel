@@ -15,12 +15,14 @@ class ModrinthProviderTest extends IntegrationTestCase
         parent::setUp();
         Cache::flush();
         config()->set('beacon.content.max_file_bytes', 1024 * 1024);
+        config()->set('beacon.modrinth.allowed_image_hosts', ['cdn.modrinth.com']);
     }
 
     public function testItNormalizesAnExactVersionAndAcceptsOnlyTheModrinthCdn(): void
     {
         Http::fake([
             'https://api.modrinth.com/v2/version/version-one' => Http::response($this->version()),
+            'https://api.modrinth.com/v2/project/project-one' => Http::response($this->project()),
         ]);
 
         $version = app(ModrinthProvider::class)->version('version-one');
@@ -37,6 +39,7 @@ class ModrinthProviderTest extends IntegrationTestCase
         $response['files'][0]['url'] = 'https://example.com/plugin.jar';
         Http::fake([
             'https://api.modrinth.com/v2/version/version-one' => Http::response($response),
+            'https://api.modrinth.com/v2/project/project-one' => Http::response($this->project()),
         ]);
 
         $this->expectException(ProviderResponseException::class);
@@ -53,10 +56,25 @@ class ModrinthProviderTest extends IntegrationTestCase
         ]);
         Http::fake([
             'https://api.modrinth.com/v2/version/version-one' => Http::response($response),
+            'https://api.modrinth.com/v2/project/project-one' => Http::response($this->project()),
         ]);
 
         $this->expectException(ProviderResponseException::class);
         $this->expectExceptionMessage('unambiguous primary file');
+        app(ModrinthProvider::class)->version('version-one');
+    }
+
+    public function testItRejectsClientOnlyProjects(): void
+    {
+        $project = $this->project();
+        $project['server_side'] = 'unsupported';
+        Http::fake([
+            'https://api.modrinth.com/v2/version/version-one' => Http::response($this->version()),
+            'https://api.modrinth.com/v2/project/project-one' => Http::response($project),
+        ]);
+
+        $this->expectException(ProviderResponseException::class);
+        $this->expectExceptionMessage('client-only');
         app(ModrinthProvider::class)->version('version-one');
     }
 
@@ -78,6 +96,17 @@ class ModrinthProviderTest extends IntegrationTestCase
                 'size' => 1024,
                 'hashes' => ['sha512' => str_repeat('a', 128)],
             ]],
+        ];
+    }
+
+    private function project(): array
+    {
+        return [
+            'id' => 'project-one',
+            'title' => 'Project One',
+            'project_type' => 'plugin',
+            'server_side' => 'required',
+            'icon_url' => 'https://cdn.modrinth.com/data/project-one/icon.png',
         ];
     }
 }

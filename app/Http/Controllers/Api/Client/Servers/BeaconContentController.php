@@ -15,6 +15,7 @@ use Pterodactyl\Models\BeaconContentInstallation;
 use Pterodactyl\Beacon\Content\Providers\ContentProvider;
 use Pterodactyl\Beacon\Operations\StartContentOperationService;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
+use Pterodactyl\Beacon\Minecraft\ServerSoftwareCapabilityService;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Pterodactyl\Http\Requests\Api\Client\Servers\BeaconContentDeleteRequest;
 use Pterodactyl\Http\Requests\Api\Client\Servers\BeaconContentSearchRequest;
@@ -26,26 +27,51 @@ class BeaconContentController extends ClientApiController
         private ContentProvider $provider,
         private DependencyPlanner $planner,
         private StartContentOperationService $operations,
+        private ServerSoftwareCapabilityService $capabilities,
     ) {
         parent::__construct();
     }
 
     public function context(BeaconContentSearchRequest $request, Server $server): JsonResponse
     {
+        $capabilities = $this->capabilities->resolve($server);
+        if (!$capabilities['plugins']) {
+            return new JsonResponse(['data' => [
+                'enabled' => false,
+                'software' => $capabilities['software'],
+                'software_name' => $capabilities['name'],
+                'unavailable_reason' => $capabilities['plugin_unavailable_reason'],
+            ]]);
+        }
+
         $metadata = BeaconServerMetadata::query()
             ->with(['profile', 'version'])
             ->where('server_id', $server->id)
             ->first();
         if (!$metadata instanceof BeaconServerMetadata || !$metadata->profile->content_directory) {
-            return new JsonResponse(['data' => ['enabled' => false]]);
+            return new JsonResponse(['data' => [
+                'enabled' => false,
+                'software' => $capabilities['software'],
+                'software_name' => $capabilities['name'],
+                'unavailable_reason' => 'Plugin Installer requires a Beacon Paper profile with a managed Minecraft version.',
+            ]]);
         }
-        $projectType = $metadata->profile->content_directory === 'plugins' ? 'plugin' : 'mod';
+        if ($metadata->profile->content_directory !== 'plugins') {
+            return new JsonResponse(['data' => [
+                'enabled' => false,
+                'software' => $capabilities['software'],
+                'software_name' => $capabilities['name'],
+                'unavailable_reason' => 'Plugins are only available for Paper servers.',
+            ]]);
+        }
 
         return new JsonResponse(['data' => [
             'enabled' => true,
+            'software' => $capabilities['software'],
+            'software_name' => $capabilities['name'],
             'profile' => $metadata->profile->only(['code', 'name', 'loader', 'content_directory']),
             'version' => $metadata->version->only(['version', 'loader_version']),
-            'project_type' => $projectType,
+            'project_type' => 'plugin',
             'requires_stopped_server' => (bool) config('beacon.content.require_stopped_server'),
             'backup_before_mutation' => (bool) config('beacon.content.backup_before_mutation'),
         ]]);
@@ -175,15 +201,20 @@ class BeaconContentController extends ClientApiController
 
     private function metadata(Server $server): array
     {
+        $capabilities = $this->capabilities->resolve($server);
+        if (!$capabilities['plugins']) {
+            throw new ConflictHttpException($capabilities['plugin_unavailable_reason']);
+        }
+
         $metadata = BeaconServerMetadata::query()
             ->with(['profile', 'version'])
             ->where('server_id', $server->id)
             ->first();
-        if (!$metadata instanceof BeaconServerMetadata || !$metadata->profile->content_directory) {
-            throw new ConflictHttpException('Managed content is not enabled for this server.');
+        if (!$metadata instanceof BeaconServerMetadata || $metadata->profile->content_directory !== 'plugins') {
+            throw new ConflictHttpException('Plugin Installer requires a Beacon Paper profile with a managed Minecraft version.');
         }
 
-        return [$metadata, $metadata->profile->content_directory === 'plugins' ? 'plugin' : 'mod'];
+        return [$metadata, 'plugin'];
     }
 
     private function buildPlan(Server $server, string $versionId, BeaconServerMetadata $metadata, string $projectType): array

@@ -12,6 +12,7 @@ use Pterodactyl\Models\EggVariable;
 class BeaconModpackNestSeeder extends Seeder
 {
     private const INSTALLER_IMAGE = 'debian:bookworm-slim';
+    private const RUNTIME_EGGS = ['Vanilla Minecraft', 'Paper', 'Forge Minecraft'];
 
     public function run(): void
     {
@@ -82,6 +83,8 @@ class BeaconModpackNestSeeder extends Seeder
                 'rules' => 'required|string|in:.beacon/modpack-install.json',
             ]);
 
+            $this->syncRuntimeEggs($nest);
+
             // Remove only empty duplicate nests previously created by this
             // seeder. Never delete an administrator-owned or populated nest.
             Nest::query()
@@ -91,6 +94,92 @@ class BeaconModpackNestSeeder extends Seeder
                 ->doesntHave('eggs')
                 ->delete();
         });
+    }
+
+    /**
+     * Keep trusted copies of the upstream Minecraft runtime Eggs inside the
+     * Beacon nest. Beacon provisioning never binds a server to the upstream
+     * Minecraft nest directly.
+     */
+    private function syncRuntimeEggs(Nest $beaconNest): void
+    {
+        $minecraftNest = Nest::query()
+            ->where('name', 'Minecraft')
+            ->where('author', 'support@pterodactyl.io')
+            ->first();
+        if (!$minecraftNest instanceof Nest) {
+            throw new \RuntimeException('The upstream Minecraft nest is required to seed trusted Beacon runtime Eggs.');
+        }
+
+        $runtimeEggs = [];
+        foreach (self::RUNTIME_EGGS as $name) {
+            $source = Egg::query()
+                ->with('variables')
+                ->where('nest_id', $minecraftNest->id)
+                ->where('name', $name)
+                ->first();
+            if (!$source instanceof Egg) {
+                throw new \RuntimeException("The upstream Minecraft Egg '{$name}' is required to seed Beacon runtimes.");
+            }
+
+            $target = Egg::query()
+                ->where('nest_id', $beaconNest->id)
+                ->where('name', $name)
+                ->first() ?? new Egg();
+            if (!$target->exists) {
+                $target->uuid = Uuid::uuid4()->toString();
+            }
+            $target->forceFill([
+                'nest_id' => $beaconNest->id,
+                'author' => $source->author,
+                'name' => $source->name,
+                'description' => $source->description,
+                'features' => $source->inherit_features,
+                'docker_images' => $source->docker_images,
+                'file_denylist' => $source->inherit_file_denylist,
+                'config_files' => $source->inherit_config_files,
+                'config_startup' => $source->inherit_config_startup,
+                'config_logs' => $source->inherit_config_logs,
+                'config_stop' => $source->inherit_config_stop,
+                'config_from' => null,
+                'startup' => $source->startup,
+                'script_is_privileged' => $source->script_is_privileged,
+                'script_install' => $source->copy_script_install,
+                'script_entry' => $source->copy_script_entry,
+                'script_container' => $source->copy_script_container,
+                'copy_script_from' => null,
+                'force_outgoing_ip' => $source->force_outgoing_ip,
+                'update_url' => $source->update_url,
+            ])->save();
+
+            foreach ($source->variables as $variable) {
+                EggVariable::query()->updateOrCreate([
+                    'egg_id' => $target->id,
+                    'env_variable' => $variable->env_variable,
+                ], [
+                    'name' => $variable->name,
+                    'description' => $variable->description,
+                    'default_value' => $variable->default_value,
+                    'user_viewable' => $variable->user_viewable,
+                    'user_editable' => $variable->user_editable,
+                    'rules' => $variable->rules,
+                ]);
+            }
+
+            $runtimeEggs[$name] = $target;
+        }
+
+        $applicationId = DB::table('beacon_catalog_applications')
+            ->where('slug', 'minecraft-java')
+            ->value('id');
+        if (!is_null($applicationId)) {
+            foreach (['vanilla' => 'Vanilla Minecraft', 'paper' => 'Paper'] as $profile => $eggName) {
+                DB::table('beacon_catalog_profiles')
+                    ->where('application_id', (int) $applicationId)
+                    ->where('code', $profile)
+                    ->update(['egg_id' => $runtimeEggs[$eggName]->id, 'updated_at' => now()]);
+            }
+        }
     }
 
     private function installScript(): string

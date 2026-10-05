@@ -13,6 +13,7 @@ use Pterodactyl\Models\EggVariable;
 use League\Fractal\Resource\Collection;
 use League\Fractal\Resource\NullResource;
 use Pterodactyl\Services\Servers\StartupCommandService;
+use Pterodactyl\Beacon\Minecraft\ServerSoftwareCapabilityService;
 
 class ServerTransformer extends BaseClientTransformer
 {
@@ -33,6 +34,7 @@ class ServerTransformer extends BaseClientTransformer
     {
         /** @var StartupCommandService $service */
         $service = Container::getInstance()->make(StartupCommandService::class);
+        $capabilities = Container::getInstance()->make(ServerSoftwareCapabilityService::class)->resolve($server);
 
         $user = $this->request->user();
 
@@ -68,6 +70,13 @@ class ServerTransformer extends BaseClientTransformer
             'invocation' => $service->handle($server, !$user->can(Permission::ACTION_STARTUP_READ, $server)),
             'docker_image' => $server->image,
             'egg_features' => $server->egg->inherit_features,
+            'beacon_capabilities' => [
+                'software' => $capabilities['software'],
+                'name' => $capabilities['name'],
+                'plugins' => $capabilities['plugins'],
+                'mods' => $capabilities['mods'],
+                'modpacks' => $capabilities['modpacks'],
+            ],
             'feature_limits' => [
                 'databases' => $server->database_limit,
                 'allocations' => $server->allocation_limit,

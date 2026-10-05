@@ -62,7 +62,11 @@ export interface ModpackOperation {
 
 export interface ModpackContext {
     enabled: boolean;
+    available: boolean;
     authorized: boolean;
+    software: string;
+    software_name: string;
+    unavailable_reason: string | null;
     providers: ModpackProviderStatus[];
     installation: ModpackInstallation | null;
     active_operation: ModpackOperation | null;

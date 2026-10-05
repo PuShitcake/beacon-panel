@@ -25,6 +25,12 @@ class AuthenticateServerAccess
         'api:beacon.modpacks.context',
         'api:beacon.modpacks.history',
         'api:beacon.modpacks.operation',
+        'api:beacon.mods.context',
+        'api:beacon.mods.history',
+        'api:beacon.mods.operation',
+        'api:beacon.minecraft-services.context',
+        'api:beacon.minecraft-services.history',
+        'api:beacon.minecraft-services.operation',
     ];
 
     /**

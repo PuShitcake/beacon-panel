@@ -17,6 +17,7 @@ return [
     'modrinth' => [
         'base_url' => 'https://api.modrinth.com/v2',
         'allowed_download_hosts' => ['cdn.modrinth.com'],
+        'allowed_image_hosts' => ['cdn.modrinth.com'],
         'user_agent' => env('BEACON_MODRINTH_USER_AGENT', 'PuShitcake/BeaconPanel'),
         'timeout' => (int) env('BEACON_MODRINTH_TIMEOUT', 10),
         'cache_ttl' => (int) env('BEACON_MODRINTH_CACHE_TTL', 300),
@@ -97,6 +98,10 @@ return [
             ],
         ],
     ],
+    'mods' => [
+        'enabled' => env('BEACON_MOD_INSTALLER_ENABLED', true),
+        'power_transition_timeout_seconds' => (int) env('BEACON_MOD_POWER_TIMEOUT', 120),
+    ],
     'content' => [
         'max_file_bytes' => (int) env('BEACON_CONTENT_MAX_FILE_BYTES', 268435456),
         'max_total_bytes' => (int) env('BEACON_CONTENT_MAX_TOTAL_BYTES', 536870912),
@@ -108,5 +113,11 @@ return [
     'minecraft_configuration' => [
         'require_stopped_server' => env('BEACON_CONFIG_REQUIRE_STOPPED_SERVER', true),
         'max_file_bytes' => 262144,
+    ],
+    'minecraft_services' => [
+        'enabled' => env('BEACON_MINECRAFT_SERVICES_ENABLED', true),
+        'power_transition_timeout_seconds' => (int) env('BEACON_MINECRAFT_SERVICES_POWER_TIMEOUT', 120),
+        'port_range_start' => (int) env('BEACON_MINECRAFT_SERVICES_PORT_RANGE_START', 25570),
+        'port_range_end' => (int) env('BEACON_MINECRAFT_SERVICES_PORT_RANGE_END', 25670),
     ],
 ];

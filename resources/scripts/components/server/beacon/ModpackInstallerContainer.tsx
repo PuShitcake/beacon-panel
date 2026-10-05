@@ -468,6 +468,13 @@ const ModpackInstallerContainer = () => {
                 <ContentBox title={'Modpack Installer disabled'}>
                     <p css={tw`text-sm text-neutral-300`}>Enable BEACON_MODPACKS_ENABLED to use this feature.</p>
                 </ContentBox>
+            ) : !context.available ? (
+                <ContentBox title={'Modpack Installer unavailable'}>
+                    <p css={tw`text-sm text-neutral-300`}>
+                        {context.unavailable_reason ||
+                            'Switch to Forge, Fabric, NeoForge, or Quilt before installing modpacks.'}
+                    </p>
+                </ContentBox>
             ) : (
                 <div css={tw`space-y-6`}>
                     {context.installation && (

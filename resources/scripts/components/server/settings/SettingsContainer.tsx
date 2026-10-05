@@ -14,6 +14,7 @@ import isEqual from 'react-fast-compare';
 import CopyOnClick from '@/components/elements/CopyOnClick';
 import { ip } from '@/lib/formatters';
 import { Button } from '@/components/elements/button/index';
+import MinecraftServicesContainer from '@/components/server/beacon/MinecraftServicesContainer';
 
 export default () => {
     const username = useStoreState((state) => state.user.data!.username);
@@ -21,6 +22,8 @@ export default () => {
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
     const node = ServerContext.useStoreState((state) => state.server.data!.node);
     const sftp = ServerContext.useStoreState((state) => state.server.data!.sftpDetails, isEqual);
+    const isOwner = ServerContext.useStoreState((state) => state.server.data!.isOwner);
+    const rootAdmin = useStoreState((state) => state.user.data!.rootAdmin);
 
     return (
         <ServerContentBlock title={'Settings'}>
@@ -69,6 +72,7 @@ export default () => {
                             </div>
                         </CopyOnClick>
                     </TitledGreyBox>
+                    {(isOwner || rootAdmin) && <MinecraftServicesContainer />}
                 </div>
                 <div css={tw`w-full mt-6 md:flex-1 md:mt-0`}>
                     <Can action={'settings.rename'}>

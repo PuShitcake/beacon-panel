@@ -122,7 +122,7 @@ const ContentContainer = () => {
         try {
             await awaitOperation(await installContent(server, version));
             setPlan(undefined);
-            addFlash({ key: 'beacon-content', type: 'success', message: 'Content installed successfully.' });
+            addFlash({ key: 'beacon-content', type: 'success', message: 'Plugin installed successfully.' });
         } catch (error) {
             clearAndAddHttpError({ key: 'beacon-content', error: httpErrorToHuman(error) });
         } finally {
@@ -136,7 +136,7 @@ const ContentContainer = () => {
         clearFlashes('beacon-content');
         try {
             await awaitOperation(await removeContent(server, installation.id));
-            addFlash({ key: 'beacon-content', type: 'success', message: 'Content removed successfully.' });
+            addFlash({ key: 'beacon-content', type: 'success', message: 'Plugin removed successfully.' });
         } catch (error) {
             clearAndAddHttpError({ key: 'beacon-content', error: httpErrorToHuman(error) });
         } finally {
@@ -147,7 +147,7 @@ const ContentContainer = () => {
     if (loading) return <Spinner size={'large'} centered />;
 
     return (
-        <ServerContentBlock title={'Content'}>
+        <ServerContentBlock title={'Plugin Installer'}>
             <FlashMessageRender byKey={'beacon-content'} css={tw`mb-4`} />
             <Dialog.Confirm
                 title={'Remove installed content?'}
@@ -164,17 +164,14 @@ const ContentContainer = () => {
                 </p>
             </Dialog.Confirm>
             {!context?.enabled ? (
-                <ContentBox title={'Managed content unavailable'}>
+                <ContentBox title={'Plugin Installer unavailable'}>
                     <p css={tw`text-sm text-neutral-300`}>
-                        This server was not created from a Beacon Minecraft profile, so managed content is disabled.
+                        {context?.unavailable_reason || 'Plugins are only available for Paper servers.'}
                     </p>
                 </ContentBox>
             ) : (
                 <div css={tw`space-y-6`}>
-                    <ContentBox
-                        title={`${context.project_type === 'plugin' ? 'Plugin' : 'Mod'} manager`}
-                        showLoadingOverlay={working}
-                    >
+                    <ContentBox title={'Plugin manager'} showLoadingOverlay={working}>
                         <p css={tw`text-sm text-neutral-300 mb-4`}>
                             {context.profile?.name} · Minecraft {context.version?.version} · {context.profile?.loader}
                         </p>

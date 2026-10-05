@@ -13,12 +13,13 @@ class ModrinthProvider implements ContentProvider
 
     public function search(string $query, string $gameVersion, string $loader, string $projectType, int $offset = 0): array
     {
+        $query = trim($query);
         $typeFacet = $projectType === 'plugin' ? 'all_project_types:plugin' : "project_type:{$projectType}";
         $facets = [[$typeFacet], ["versions:{$gameVersion}"], ["categories:{$loader}"]];
         $data = $this->get('/search', [
             'query' => $query,
             'facets' => json_encode($facets, JSON_THROW_ON_ERROR),
-            'index' => 'relevance',
+            'index' => $query === '' ? 'downloads' : 'relevance',
             'offset' => max(0, $offset),
             'limit' => 20,
         ]);
@@ -31,24 +32,29 @@ class ModrinthProvider implements ContentProvider
             'offset' => (int) ($data['offset'] ?? 0),
             'limit' => (int) ($data['limit'] ?? 20),
             'total' => (int) ($data['total_hits'] ?? 0),
-            'projects' => collect($data['hits'])->map(function ($project) {
-                return [
-                    'id' => $this->requiredString($project, 'project_id'),
-                    'slug' => $this->nullableString($project, 'slug'),
-                    'title' => $this->requiredString($project, 'title'),
-                    'description' => $this->requiredString($project, 'description'),
-                    'author' => $this->requiredString($project, 'author'),
-                    'project_type' => $this->requiredString($project, 'project_type'),
-                    'icon_url' => $this->safeImageUrl($project['icon_url'] ?? null),
-                    'downloads' => (int) ($project['downloads'] ?? 0),
-                    'versions' => array_values(array_filter($project['versions'] ?? [], 'is_string')),
-                ];
-            })->values()->all(),
+            'projects' => collect($data['hits'])
+                ->filter(fn ($project) => is_array($project) && ($project['server_side'] ?? null) !== 'unsupported')
+                ->map(function ($project) {
+                    return [
+                        'id' => $this->requiredString($project, 'project_id'),
+                        'slug' => $this->nullableString($project, 'slug'),
+                        'title' => $this->requiredString($project, 'title'),
+                        'description' => $this->requiredString($project, 'description'),
+                        'author' => $this->requiredString($project, 'author'),
+                        'project_type' => $this->requiredString($project, 'project_type'),
+                        'icon_url' => $this->safeImageUrl($project['icon_url'] ?? null),
+                        'downloads' => (int) ($project['downloads'] ?? 0),
+                        'server_side' => $this->nullableString($project, 'server_side'),
+                        'versions' => array_values(array_filter($project['versions'] ?? [], 'is_string')),
+                    ];
+                })->values()->all(),
         ];
     }
 
     public function versions(string $projectId, string $gameVersion, string $loader): array
     {
+        $project = $this->project($projectId);
+        $this->assertServerCompatible($project);
         $data = $this->get('/project/' . rawurlencode($projectId) . '/version', [
             'game_versions' => json_encode([$gameVersion], JSON_THROW_ON_ERROR),
             'loaders' => json_encode([$loader], JSON_THROW_ON_ERROR),
@@ -59,12 +65,27 @@ class ModrinthProvider implements ContentProvider
             throw new ProviderResponseException('Modrinth returned an invalid version list.');
         }
 
-        return collect($data)->map(fn ($version) => $this->normalizeVersion($version))->values()->all();
+        return collect($data)->map(fn ($version) => $this->normalizeVersion($version, $project))->values()->all();
     }
 
     public function version(string $versionId): array
     {
-        return $this->normalizeVersion($this->get('/version/' . rawurlencode($versionId)));
+        $version = $this->get('/version/' . rawurlencode($versionId));
+        $projectId = $this->requiredString($version, 'project_id');
+        $project = $this->project($projectId);
+        $this->assertServerCompatible($project);
+
+        return $this->normalizeVersion($version, $project);
+    }
+
+    private function project(string $projectId): array
+    {
+        $project = $this->get('/project/' . rawurlencode($projectId));
+        if (!is_array($project)) {
+            throw new ProviderResponseException('Modrinth returned an invalid project response.');
+        }
+
+        return $project;
     }
 
     private function get(string $path, array $query = []): array
@@ -97,7 +118,7 @@ class ModrinthProvider implements ContentProvider
         });
     }
 
-    private function normalizeVersion(array $version): array
+    private function normalizeVersion(array $version, array $project): array
     {
         $files = $version['files'] ?? null;
         if (!is_array($files) || $files === []) {
@@ -130,6 +151,10 @@ class ModrinthProvider implements ContentProvider
         return [
             'id' => $this->requiredString($version, 'id'),
             'project_id' => $this->requiredString($version, 'project_id'),
+            'project_name' => $this->requiredString($project, 'title'),
+            'project_type' => $this->requiredString($project, 'project_type'),
+            'icon_url' => $this->safeImageUrl($project['icon_url'] ?? null),
+            'server_side' => $this->nullableString($project, 'server_side'),
             'name' => $this->requiredString($version, 'name'),
             'version_number' => $this->requiredString($version, 'version_number'),
             'version_type' => $this->requiredString($version, 'version_type'),
@@ -164,7 +189,17 @@ class ModrinthProvider implements ContentProvider
 
         $parts = parse_url($url);
 
-        return ($parts['scheme'] ?? null) === 'https' ? $url : null;
+        return ($parts['scheme'] ?? null) === 'https'
+            && in_array(strtolower($parts['host'] ?? ''), config('beacon.modrinth.allowed_image_hosts'), true)
+                ? $url
+                : null;
+    }
+
+    private function assertServerCompatible(array $project): void
+    {
+        if (($project['server_side'] ?? null) === 'unsupported') {
+            throw new ProviderResponseException('This Modrinth project is client-only and cannot be installed on a server.');
+        }
     }
 
     private function requiredString(array $data, string $key): string

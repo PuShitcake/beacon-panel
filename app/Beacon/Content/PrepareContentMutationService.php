@@ -22,15 +22,13 @@ class PrepareContentMutationService
      */
     public function handle(BeaconOperation $operation, Server $server): bool
     {
-        if (config('beacon.content.require_stopped_server')) {
-            $details = $this->serverRepository->setServer($server)->getDetails();
-            $state = data_get($details, 'state');
-            if (!is_string($state) || $state === '') {
-                throw new ConflictHttpException('Wings did not return a valid server state. No content was changed.');
-            }
-            if ($state !== 'offline') {
-                throw new ConflictHttpException('Stop the server before changing managed content.');
-            }
+        $details = $this->serverRepository->setServer($server)->getDetails();
+        $state = data_get($details, 'state');
+        if (!is_string($state) || $state === '') {
+            throw new ConflictHttpException('Wings did not return a valid server state. No content was changed.');
+        }
+        if ($state !== 'offline') {
+            throw new ConflictHttpException('The server must remain offline while managed content is changed.');
         }
 
         if (!config('beacon.content.backup_before_mutation')) {

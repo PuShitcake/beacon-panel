@@ -5,6 +5,7 @@ namespace Pterodactyl\Http\Controllers\Api\Client\Servers;
 use Pterodactyl\Models\Server;
 use Illuminate\Http\JsonResponse;
 use Pterodactyl\Facades\Activity;
+use Pterodactyl\Models\BeaconOperation;
 use Pterodactyl\Models\BeaconServerMetadata;
 use Pterodactyl\Beacon\Minecraft\ServerPropertiesService;
 use Pterodactyl\Repositories\Wings\DaemonServerRepository;
@@ -32,6 +33,16 @@ class BeaconConfigurationController extends ClientApiController
     public function update(BeaconConfigurationWriteRequest $request, Server $server): JsonResponse
     {
         $this->ensureMinecraftServer($server);
+        if (BeaconOperation::query()
+            ->where('server_id', $server->id)
+            ->whereIn('status', [BeaconOperation::STATUS_PENDING, BeaconOperation::STATUS_RUNNING])
+            ->where(function ($query) {
+                $query->where('type', 'like', 'minecraft-service.%')
+                    ->orWhere('type', 'like', 'modpack.%');
+            })
+            ->exists()) {
+            throw new ConflictHttpException('Wait for the active Beacon operation before changing Minecraft configuration.');
+        }
         if (config('beacon.minecraft_configuration.require_stopped_server')) {
             $details = $this->serverRepository->setServer($server)->getDetails();
             $state = data_get($details, 'state');

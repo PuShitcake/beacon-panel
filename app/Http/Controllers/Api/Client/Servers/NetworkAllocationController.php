@@ -8,6 +8,7 @@ use Pterodactyl\Facades\Activity;
 use Pterodactyl\Models\Allocation;
 use Illuminate\Database\ConnectionInterface;
 use Pterodactyl\Exceptions\DisplayException;
+use Pterodactyl\Models\BeaconMinecraftService;
 use Pterodactyl\Repositories\Eloquent\ServerRepository;
 use Pterodactyl\Transformers\Api\Client\AllocationTransformer;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
@@ -74,6 +75,7 @@ class NetworkAllocationController extends ClientApiController
      */
     public function setPrimary(SetPrimaryAllocationRequest $request, Server $server, Allocation $allocation): array
     {
+        $this->ensureNotBeaconManaged($allocation);
         $this->serverRepository->update($server->id, ['allocation_id' => $allocation->id]);
 
         Activity::event('server:allocation.primary')
@@ -118,6 +120,7 @@ class NetworkAllocationController extends ClientApiController
      */
     public function delete(DeleteAllocationRequest $request, Server $server, Allocation $allocation): JsonResponse
     {
+        $this->ensureNotBeaconManaged($allocation);
         // Don't allow the deletion of allocations if the server does not have an
         // allocation limit set.
         if (empty($server->allocation_limit)) {
@@ -139,5 +142,15 @@ class NetworkAllocationController extends ClientApiController
             ->log();
 
         return new JsonResponse([], JsonResponse::HTTP_NO_CONTENT);
+    }
+
+    private function ensureNotBeaconManaged(Allocation $allocation): void
+    {
+        if (BeaconMinecraftService::query()
+            ->where('rcon_allocation_id', $allocation->id)
+            ->orWhere('query_allocation_id', $allocation->id)
+            ->exists()) {
+            throw new DisplayException('This allocation is managed by Beacon RCON or Query. Disable that service before changing the allocation.');
+        }
     }
 }

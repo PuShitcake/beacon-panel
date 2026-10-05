@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BeaconCatalogProfile extends Model
 {
-    public const LOADERS = ['vanilla', 'paper', 'fabric', 'forge', 'neoforge'];
+    public const LOADERS = ['vanilla', 'paper', 'fabric', 'forge', 'neoforge', 'quilt'];
 
     protected $table = 'beacon_catalog_profiles';
     protected $fillable = ['application_id', 'egg_id', 'code', 'name', 'loader', 'content_directory', 'enabled'];
@@ -18,7 +18,7 @@ class BeaconCatalogProfile extends Model
         'egg_id' => 'required|integer|exists:eggs,id',
         'code' => 'required|string|max:64',
         'name' => 'required|string|max:191',
-        'loader' => 'required|string|in:vanilla,paper,fabric,forge,neoforge',
+        'loader' => 'required|string|in:vanilla,paper,fabric,forge,neoforge,quilt',
         'content_directory' => 'nullable|string|in:plugins,mods',
         'enabled' => 'boolean',
     ];

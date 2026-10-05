@@ -17,12 +17,15 @@ class SeedMinecraftCatalogCommandTest extends IntegrationTestCase
         $this->artisan('p:beacon:catalog:seed-minecraft')->assertExitCode(0);
 
         $application = BeaconCatalogApplication::query()
-            ->with(['profiles.versions'])
+            ->with(['profiles.versions', 'profiles.egg.nest'])
             ->where('slug', 'minecraft-java')
             ->sole();
 
         $this->assertSame('Minecraft: Java Edition', $application->name);
         $this->assertSame(['paper', 'vanilla'], $application->profiles->pluck('code')->sort()->values()->all());
+        $this->assertTrue($application->profiles->every(
+            fn ($profile) => $profile->egg->nest->name === 'Beacon'
+        ));
         $this->assertTrue($application->profiles->every(
             fn ($profile) => $profile->versions->count() === count(config('beacon.minecraft_versions'))
         ));

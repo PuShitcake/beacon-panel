@@ -67,6 +67,10 @@ class DependencyPlannerTest extends IntegrationTestCase
         return [
             'id' => $id,
             'project_id' => $projectId,
+            'project_name' => $projectId,
+            'project_type' => 'plugin',
+            'icon_url' => null,
+            'server_side' => 'required',
             'name' => $id,
             'version_number' => '1.0.0',
             'game_versions' => ['1.21.8'],

@@ -53,6 +53,13 @@ export interface Server {
         threads: string;
     };
     eggFeatures: string[];
+    beaconCapabilities: {
+        software: string;
+        name: string;
+        plugins: boolean;
+        mods: boolean;
+        modpacks: boolean;
+    };
     featureLimits: {
         databases: number;
         allocations: number;
@@ -84,6 +91,13 @@ export const rawDataToServerObject = ({ attributes: data }: FractalResponseData)
     description: data.description ? (data.description.length > 0 ? data.description : null) : null,
     limits: { ...data.limits },
     eggFeatures: data.egg_features || [],
+    beaconCapabilities: {
+        software: data.beacon_capabilities?.software || 'unknown',
+        name: data.beacon_capabilities?.name || 'Unsupported software',
+        plugins: data.beacon_capabilities?.plugins || false,
+        mods: data.beacon_capabilities?.mods || false,
+        modpacks: data.beacon_capabilities?.modpacks || false,
+    },
     featureLimits: { ...data.feature_limits },
     isTransferring: data.is_transferring,
     skipScripts: data.skip_scripts,

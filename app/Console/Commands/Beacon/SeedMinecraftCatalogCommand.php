@@ -18,9 +18,9 @@ class SeedMinecraftCatalogCommand extends Command
 
     public function handle(): int
     {
-        $nest = Nest::query()->where('name', 'Minecraft')->first();
+        $nest = Nest::query()->where('name', config('beacon.modpacks.nest.name'))->first();
         if (!$nest instanceof Nest) {
-            $this->error('The Minecraft nest does not exist. Run the Pterodactyl egg seeders first.');
+            $this->error('The Beacon nest does not exist. Run the database seeders first.');
 
             return self::FAILURE;
         }
@@ -62,8 +62,8 @@ class SeedMinecraftCatalogCommand extends Command
             }
         }, 5);
 
-        $this->info('Beacon Minecraft catalog seeded. Vanilla and Paper use trusted upstream Eggs.');
-        $this->comment('Fabric, Forge, and NeoForge profiles require compatible Eggs before they can be enabled.');
+        $this->info('Beacon Minecraft catalog seeded. All profiles use runtime Eggs from the Beacon nest.');
+        $this->comment('Fabric, Forge, NeoForge, and Quilt creation profiles require dedicated installation contracts before they can be enabled.');
 
         return self::SUCCESS;
     }

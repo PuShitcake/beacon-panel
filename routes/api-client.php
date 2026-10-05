@@ -118,6 +118,47 @@ Route::group([
             ->name('api:beacon.modpacks.operation');
     });
 
+    Route::group(['prefix' => '/beacon/mods'], function () {
+        Route::middleware('throttle:api.beacon.content')->group(function () {
+            Route::get('/context', [Client\Servers\BeaconModController::class, 'context'])
+                ->name('api:beacon.mods.context');
+            Route::get('/installations', [Client\Servers\BeaconModController::class, 'index']);
+            Route::get('/search', [Client\Servers\BeaconModController::class, 'search']);
+            Route::get('/projects/{projectId}/versions', [Client\Servers\BeaconModController::class, 'versions']);
+            Route::get('/plan', [Client\Servers\BeaconModController::class, 'plan']);
+            Route::get('/history', [Client\Servers\BeaconModController::class, 'history'])
+                ->name('api:beacon.mods.history');
+
+            Route::middleware(RequireBeaconRequestMetadata::class)->group(function () {
+                Route::post('/install', [Client\Servers\BeaconModController::class, 'install']);
+                Route::post('/installations/{installationId}/update', [Client\Servers\BeaconModController::class, 'update']);
+                Route::post('/installations/{installationId}/reinstall', [Client\Servers\BeaconModController::class, 'reinstall']);
+                Route::delete('/installations/{installationId}', [Client\Servers\BeaconModController::class, 'uninstall']);
+            });
+        });
+
+        Route::get('/operations/{operationUuid}', [Client\Servers\BeaconModController::class, 'operation'])
+            ->middleware('throttle:api.beacon.poll')
+            ->name('api:beacon.mods.operation');
+    });
+
+    Route::group([
+        'prefix' => '/beacon/minecraft-services',
+        'middleware' => RequireBeaconRequestMetadata::class,
+    ], function () {
+        Route::middleware('throttle:api.beacon.content')->group(function () {
+            Route::get('/context', [Client\Servers\BeaconMinecraftServiceController::class, 'context'])
+                ->name('api:beacon.minecraft-services.context');
+            Route::get('/history', [Client\Servers\BeaconMinecraftServiceController::class, 'history'])
+                ->name('api:beacon.minecraft-services.history');
+            Route::post('/actions', [Client\Servers\BeaconMinecraftServiceController::class, 'mutate']);
+        });
+
+        Route::get('/operations/{operationUuid}', [Client\Servers\BeaconMinecraftServiceController::class, 'operation'])
+            ->middleware('throttle:api.beacon.poll')
+            ->name('api:beacon.minecraft-services.operation');
+    });
+
     Route::post('/command', [Client\Servers\CommandController::class, 'index']);
     Route::post('/power', [Client\Servers\PowerController::class, 'index']);
 

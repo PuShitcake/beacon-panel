@@ -33,6 +33,7 @@ export default () => {
     const inConflictState = ServerContext.useStoreState((state) => state.server.inConflictState);
     const serverId = ServerContext.useStoreState((state) => state.server.data?.internalId);
     const isOwner = ServerContext.useStoreState((state) => state.server.data?.isOwner);
+    const beaconCapabilities = ServerContext.useStoreState((state) => state.server.data?.beaconCapabilities);
     const getServer = ServerContext.useStoreActions((actions) => actions.server.getServer);
     const clearServerState = ServerContext.useStoreActions((actions) => actions.clearServerState);
 
@@ -78,7 +79,12 @@ export default () => {
                         <SubNavigation>
                             <div>
                                 {routes.server
-                                    .filter((route) => !!route.name && (!route.ownerOnly || rootAdmin || isOwner))
+                                    .filter(
+                                        (route) =>
+                                            !!route.name &&
+                                            (!route.ownerOnly || rootAdmin || isOwner) &&
+                                            (!route.beaconCapability || beaconCapabilities?.[route.beaconCapability])
+                                    )
                                     .map((route) =>
                                         route.permission ? (
                                             <Can key={route.path} action={route.permission} matchAny>

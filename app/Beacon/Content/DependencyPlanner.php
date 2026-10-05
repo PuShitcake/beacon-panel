@@ -23,7 +23,7 @@ class DependencyPlanner
         $this->optional = [];
         $this->incompatible = [];
         $this->totalBytes = 0;
-        $this->visit($versionId, $gameVersion, $loader, 0);
+        $this->visit($versionId, $gameVersion, $loader, $projectType, 0);
 
         return [
             'provider' => 'modrinth',
@@ -37,7 +37,7 @@ class DependencyPlanner
         ];
     }
 
-    private function visit(string $versionId, string $gameVersion, string $loader, int $depth): void
+    private function visit(string $versionId, string $gameVersion, string $loader, string $projectType, int $depth): void
     {
         if ($depth > config('beacon.content.max_dependency_depth')) {
             throw new ConflictHttpException('The dependency graph exceeds the configured depth limit.');
@@ -50,6 +50,9 @@ class DependencyPlanner
         }
 
         $version = $this->provider->version($versionId);
+        if (($version['project_type'] ?? null) !== $projectType || ($version['server_side'] ?? null) === 'unsupported') {
+            throw new ConflictHttpException('The selected project cannot run on this server.');
+        }
         if (!in_array($gameVersion, $version['game_versions'], true) || !in_array($loader, $version['loaders'], true)) {
             throw new ConflictHttpException('A content version is incompatible with the selected game version or loader.');
         }
@@ -62,6 +65,8 @@ class DependencyPlanner
 
         $this->planned[$versionId] = [
             'project_id' => $version['project_id'],
+            'project_name' => $version['project_name'],
+            'icon_url' => $version['icon_url'],
             'version_id' => $version['id'],
             'name' => $version['name'],
             'version_number' => $version['version_number'],
@@ -108,7 +113,7 @@ class DependencyPlanner
                 }
             }
 
-            $this->visit($dependencyVersion, $gameVersion, $loader, $depth + 1);
+            $this->visit($dependencyVersion, $gameVersion, $loader, $projectType, $depth + 1);
         }
     }
 }

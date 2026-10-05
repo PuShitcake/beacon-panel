@@ -3,6 +3,9 @@ import { v4 as uuid } from 'uuid';
 
 export interface BeaconContentContext {
     enabled: boolean;
+    software?: string;
+    software_name?: string;
+    unavailable_reason?: string | null;
     profile?: { code: string; name: string; loader: string; content_directory: 'plugins' | 'mods' };
     version?: { version: string; loader_version: string };
     project_type?: 'plugin' | 'mod';

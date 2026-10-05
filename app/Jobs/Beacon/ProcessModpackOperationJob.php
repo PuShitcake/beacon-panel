@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Pterodactyl\Models\BeaconOperation;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Pterodactyl\Models\BeaconContentInstallation;
 use Pterodactyl\Models\BeaconModpackInstallation;
 use Pterodactyl\Services\Backups\DeleteBackupService;
 use Pterodactyl\Services\Backups\DownloadLinkService;
@@ -20,6 +21,7 @@ use Pterodactyl\Repositories\Wings\DaemonBackupRepository;
 use Pterodactyl\Repositories\Wings\DaemonServerRepository;
 use Pterodactyl\Beacon\Modpacks\PrepareModpackOperationService;
 use Pterodactyl\Beacon\Modpacks\ManagedModpackBackupCleanupService;
+use Pterodactyl\Beacon\Content\ReconcileManagedModsForModpackService;
 
 class ProcessModpackOperationJob implements ShouldQueue
 {
@@ -45,6 +47,7 @@ class ProcessModpackOperationJob implements ShouldQueue
         DownloadLinkService $downloadLinks,
         DeleteBackupService $deleteBackup,
         ManagedModpackBackupCleanupService $managedBackups,
+        ReconcileManagedModsForModpackService $managedMods,
     ): void {
         $operation = BeaconOperation::query()->findOrFail($this->operationId);
         if (in_array($operation->status, [BeaconOperation::STATUS_SUCCEEDED, BeaconOperation::STATUS_FAILED], true)) {
@@ -112,6 +115,22 @@ class ProcessModpackOperationJob implements ShouldQueue
             if ($phase === 'switch_installer') {
                 $repository = $files->setServer($server);
                 $this->ensureBeaconDirectory($repository);
+                if (($payload['mutation_started'] ?? false) !== true) {
+                    $payload['mutation_started'] = true;
+                    $operation->forceFill(['payload' => $payload])->save();
+                }
+                if (!array_key_exists('managed_mods_preserved', $payload)) {
+                    $payload['managed_mods_preserved'] = ($payload['action'] ?? null) === 'install'
+                        && ($payload['delete_files'] ?? false) === true
+                            ? []
+                            : $managedMods->preserve(
+                                $server,
+                                $repository,
+                                $operation->uuid,
+                                (string) ($payload['action'] ?? 'install'),
+                            );
+                    $operation->forceFill(['payload' => $payload])->save();
+                }
                 $manifest = array_merge($payload['release'], [
                     'max_archive_bytes' => (int) config('beacon.modpacks.max_archive_bytes'),
                     'max_extracted_bytes' => (int) config('beacon.modpacks.max_extracted_bytes'),
@@ -121,7 +140,6 @@ class ProcessModpackOperationJob implements ShouldQueue
                     'status' => 'pending',
                     'operation_uuid' => $operation->uuid,
                 ], JSON_THROW_ON_ERROR));
-                $payload['mutation_started'] = true;
                 $payload['phase'] = 'wait_installer';
                 $payload['progress'] = ['stage' => 'installing', 'percent' => 40, 'message' => 'Installing the selected modpack.'];
                 $operation->forceFill(['payload' => $payload])->save();
@@ -191,6 +209,15 @@ class ProcessModpackOperationJob implements ShouldQueue
             }
 
             if ($phase === 'finalize') {
+                if (!array_key_exists('managed_mod_reconciliation', $payload)) {
+                    $payload['managed_mod_reconciliation'] = $managedMods->restore(
+                        $files->setServer($server),
+                        $operation->uuid,
+                        $payload['release'],
+                        $payload['managed_mods_preserved'] ?? [],
+                    );
+                    $operation->forceFill(['payload' => $payload])->save();
+                }
                 $this->finalizeInstallation($operation, $server, $payload, $deleteBackup);
             }
         } catch (\Throwable $exception) {
@@ -294,6 +321,10 @@ class ProcessModpackOperationJob implements ShouldQueue
 
             DB::transaction(function () use ($installation, $operation, $payload, $server, $backupUuid, $restart) {
                 $installation->delete();
+                BeaconContentInstallation::query()
+                    ->where('server_id', $server->id)
+                    ->where('project_type', 'mod')
+                    ->delete();
                 Backup::query()
                     ->where('server_id', $server->id)
                     ->where('uuid', $backupUuid)
@@ -497,6 +528,24 @@ class ProcessModpackOperationJob implements ShouldQueue
                 'manifest' => $release,
                 'installed_at' => now(),
             ]);
+            foreach ($payload['managed_mod_reconciliation'] ?? [] as $change) {
+                if (!is_array($change) || !is_int($change['id'] ?? null)) {
+                    continue;
+                }
+                BeaconContentInstallation::query()
+                    ->where('server_id', $server->id)
+                    ->whereKey($change['id'])
+                    ->update([
+                        'status' => $change['status'] ?? 'disabled',
+                        'disabled_path' => $change['disabled_path'] ?? null,
+                    ]);
+            }
+            if (($payload['action'] ?? null) === 'install' && ($payload['delete_files'] ?? false) === true) {
+                BeaconContentInstallation::query()
+                    ->where('server_id', $server->id)
+                    ->where('project_type', 'mod')
+                    ->delete();
+            }
             $operation->forceFill([
                 'status' => BeaconOperation::STATUS_SUCCEEDED,
                 'payload' => $payload,
@@ -505,6 +554,7 @@ class ProcessModpackOperationJob implements ShouldQueue
                     'project_id' => $release['project_id'],
                     'version_id' => $release['version_id'],
                     'rollback_backup_uuid' => $payload['rollback_backup_uuid'] ?? null,
+                    'managed_mods' => $payload['managed_mod_reconciliation'] ?? [],
                 ],
                 'finished_at' => now(),
             ])->save();

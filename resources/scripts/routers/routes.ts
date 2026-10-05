@@ -16,6 +16,7 @@ import ServerActivityLogContainer from '@/components/server/ServerActivityLogCon
 import ContentContainer from '@/components/server/beacon/ContentContainer';
 import ConfigurationContainer from '@/components/server/beacon/ConfigurationContainer';
 import ModpackInstallerContainer from '@/components/server/beacon/ModpackInstallerContainer';
+import ModInstallerContainer from '@/components/server/beacon/ModInstallerContainer';
 
 // Each of the router files is already code split out appropriately — so
 // all of the items above will only be loaded in when that router is loaded.
@@ -37,6 +38,7 @@ interface RouteDefinition {
 interface ServerRouteDefinition extends RouteDefinition {
     permission: string | string[] | null;
     ownerOnly?: boolean;
+    beaconCapability?: 'plugins' | 'mods' | 'modpacks';
 }
 
 interface Routes {
@@ -87,7 +89,8 @@ export default {
         {
             path: '/content',
             permission: 'file.*',
-            name: 'Content',
+            beaconCapability: 'plugins',
+            name: 'Plugin Installer',
             component: ContentContainer,
         },
         {
@@ -96,6 +99,13 @@ export default {
             ownerOnly: true,
             name: 'Modpack Installer',
             component: ModpackInstallerContainer,
+        },
+        {
+            path: '/mods',
+            permission: null,
+            ownerOnly: true,
+            name: 'Mod Installer',
+            component: ModInstallerContainer,
         },
         {
             path: '/configuration',
