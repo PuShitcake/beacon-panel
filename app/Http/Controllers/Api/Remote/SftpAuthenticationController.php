@@ -10,6 +10,7 @@ use Pterodactyl\Facades\Activity;
 use Pterodactyl\Models\Permission;
 use Pterodactyl\Models\UserSSHKey;
 use phpseclib3\Crypt\PublicKeyLoader;
+use Pterodactyl\Models\BeaconSftpAlias;
 use Pterodactyl\Http\Controllers\Controller;
 use phpseclib3\Exception\NoKeyLoadedException;
 use Illuminate\Foundation\Auth\ThrottlesLogins;
@@ -47,6 +48,13 @@ class SftpAuthenticationController extends Controller
 
         $user = $this->getUser($request, $connection['username']);
         $server = $this->getServer($request, $connection['server']);
+
+        if (!$connection['public_alias'] && BeaconSftpAlias::query()
+            ->where('user_id', $user->id)
+            ->where('server_id', $server->id)
+            ->exists()) {
+            $this->reject($request);
+        }
 
         if ($request->input('type') !== 'public_key') {
             if (!password_verify($request->input('password'), $user->password)) {
@@ -114,10 +122,34 @@ class SftpAuthenticationController extends Controller
     /**
      * Parses the username provided to the request.
      *
-     * @return array{"username": string, "server": string}
+     * @return array{"username": string, "server": string, "public_alias": bool}
      */
     protected function parseUsername(string $value): array
     {
+        $matches = [];
+        if (preg_match(BeaconSftpAlias::PUBLIC_USERNAME_REGEX, $value, $matches) === 1) {
+            $alias = BeaconSftpAlias::query()
+                ->with(['user:id,username', 'server:id,uuid'])
+                ->where('public_username', $value)
+                ->first();
+
+            if ($alias && $alias->user_id === (int) $matches[1]) {
+                return [
+                    'username' => $alias->user->username,
+                    'server' => $alias->server->uuid,
+                    'public_alias' => true,
+                ];
+            }
+
+            return [
+                'username' => $value,
+                // Keep both fields non-empty so that an unknown, but well-formed,
+                // public alias follows the same generic authentication failure path.
+                'server' => $value,
+                'public_alias' => true,
+            ];
+        }
+
         // Reverse the string to avoid issues with usernames that contain periods.
         $parts = explode('.', strrev($value), 2);
 
@@ -125,6 +157,7 @@ class SftpAuthenticationController extends Controller
         return [
             'username' => strrev(array_get($parts, 1)),
             'server' => strrev(array_get($parts, 0)),
+            'public_alias' => false,
         ];
     }
 

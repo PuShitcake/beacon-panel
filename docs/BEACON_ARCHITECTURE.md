@@ -15,6 +15,8 @@ application or duplicate Panel-owned data.
   CDN and filename policies, queue-backed install/remove operations, safety backups, and manifests.
 - Native Modpack and Mod Installer pages with persisted operations, automatic power handling,
   managed dependencies, rollback protection, and Beacon-only runtime Egg selection.
+- An owner/root-admin-only Version Manager for safe Vanilla, Paper, and Forge changes using the
+  MCJars catalog, trusted Beacon Eggs, mandatory backups, automatic power handling, and rollback.
 - Shared Minecraft software capabilities enforce Vanilla, Paper, Forge, Fabric, NeoForge, and
   Quilt installer boundaries in both the Client API and server navigation.
 - An owner/root-admin-only RCON & Query Manager embedded in the native server Settings page for
@@ -93,14 +95,40 @@ configured RCON or Query settings are reported as drift and are not adopted, ove
 released. A running server is stopped gracefully before mutation and restarted only if it was
 running beforehand.
 
+## Minecraft Version Manager
+
+The native `Versions` page supports Vanilla, Paper, and Forge servers assigned to the `Beacon`
+nest. MCJars is used only as a server-side catalog: the Client API accepts a software key, exact
+Minecraft version, and opaque build UUID, then resolves that selection again against MCJars. A
+client cannot submit a Docker image, Egg ID, install script, or download URL.
+
+Every change stops a running server gracefully, completes a locked native backup, snapshots the
+original Egg/image/startup/variables, selects a trusted Beacon runtime Egg and Java image, runs the
+native Wings reinstall contract, writes `eula=true`, and restores the previous running state. If
+installation fails, Beacon restores both the runtime snapshot and the full safety backup.
+Completed backups are retained but unlocked. Worlds and configuration remain in place; folders
+that are incompatible with the new runtime (`plugins/` or `mods/`) are preserved and reported as
+inactive rather than deleted. Managed modpacks must be removed through Modpack Installer before a
+runtime change, and known downgrades are rejected.
+
+## Public SFTP aliases
+
+Beacon provisions one stable public SFTP username per native Panel User and Server pair in the
+form `@<user-id>.<random-8>`. The alias is only a lookup key: password and SSH-key authentication,
+server ownership, subuser membership, and `file.sftp` authorization continue to use the native
+Panel identity and permission model. No duplicate or hidden user account is created.
+
+Active aliases are revoked when a subuser loses SFTP access, is removed, or server ownership
+changes. Every issued name remains permanently reserved so a revoked alias cannot later identify
+a different account. Once an alias is provisioned, the legacy composite username is rejected for
+that User and Server pair. Deployment requires the Beacon alias migration and a live Wings SFTP
+authentication check before release.
+
 ## Deliberately gated work
 
 - Fabric, Forge, NeoForge, and Quilt require dedicated, reviewed creation contracts before their
   catalog profiles can be enabled directly during server creation. Modpack installation may reuse
   the Beacon Vanilla or Forge runtime Egg after its guarded installer has created the loader files.
-- SFTP aliases remain disabled. If retained, they must bind to native Panel Users and permissions
-  and pass real `/api/remote/sftp/auth` validation with Wings. Legacy duplicated identities or
-  special CUSTOMER/STAFF headers must not be ported.
 - Billing, payment, wallet, subscription, order, and pricing systems are outside this repository.
 
 ## Validation gates

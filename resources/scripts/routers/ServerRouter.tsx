@@ -112,6 +112,7 @@ export default () => {
                     <WebsocketHandler />
                     {inConflictState &&
                     !location.pathname.endsWith(`/server/${id}/modpacks`) &&
+                    !location.pathname.endsWith(`/server/${id}/versions`) &&
                     (!rootAdmin || (rootAdmin && !location.pathname.endsWith(`/server/${id}`))) ? (
                         <ConflictStateRenderer />
                     ) : (

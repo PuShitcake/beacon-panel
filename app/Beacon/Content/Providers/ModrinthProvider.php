@@ -5,6 +5,7 @@ namespace Pterodactyl\Beacon\Content\Providers;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Http\Client\ConnectionException;
 use Pterodactyl\Beacon\Content\Exceptions\ProviderResponseException;
 
 class ModrinthProvider implements ContentProvider
@@ -93,13 +94,23 @@ class ModrinthProvider implements ContentProvider
         $key = 'beacon:modrinth:' . hash('sha256', $path . '?' . http_build_query($query));
 
         return Cache::remember($key, config('beacon.modrinth.cache_ttl'), function () use ($path, $query) {
-            $response = Http::baseUrl(config('beacon.modrinth.base_url'))
-                ->acceptJson()
-                ->withUserAgent(config('beacon.modrinth.user_agent'))
-                ->withOptions(['allow_redirects' => false])
-                ->timeout(config('beacon.modrinth.timeout'))
-                ->retry(2, 250, throw: false)
-                ->get($path, $query);
+            $options = ['allow_redirects' => false];
+            if (PHP_OS_FAMILY === 'Windows' && defined('CURLOPT_SSL_OPTIONS') && defined('CURLSSLOPT_NATIVE_CA')) {
+                $options['curl'] = [CURLOPT_SSL_OPTIONS => CURLSSLOPT_NATIVE_CA];
+            }
+
+            try {
+                $response = Http::baseUrl(config('beacon.modrinth.base_url'))
+                    ->acceptJson()
+                    ->withUserAgent(config('beacon.modrinth.user_agent'))
+                    ->withOptions($options)
+                    ->timeout(config('beacon.modrinth.timeout'))
+                    ->retry(2, 250, throw: false)
+                    ->get($path, $query);
+            } catch (ConnectionException $exception) {
+                report($exception);
+                throw new ProviderResponseException('Modrinth is temporarily unavailable.', 0, $exception);
+            }
 
             if (!$response->successful()) {
                 throw new ProviderResponseException("Modrinth request failed with HTTP {$response->status()}.");

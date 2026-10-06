@@ -102,6 +102,15 @@ return [
         'enabled' => env('BEACON_MOD_INSTALLER_ENABLED', true),
         'power_transition_timeout_seconds' => (int) env('BEACON_MOD_POWER_TIMEOUT', 120),
     ],
+    'versions' => [
+        'enabled' => env('BEACON_VERSION_MANAGER_ENABLED', true),
+        'base_url' => 'https://versions.mcjars.app/api',
+        'timeout' => (int) env('BEACON_MCJARS_TIMEOUT', 15),
+        'cache_ttl' => (int) env('BEACON_MCJARS_CACHE_TTL', 300),
+        'operation_timeout_minutes' => (int) env('BEACON_VERSION_OPERATION_TIMEOUT', 45),
+        'power_transition_timeout_seconds' => (int) env('BEACON_VERSION_POWER_TIMEOUT', 120),
+        'software' => ['vanilla', 'paper', 'forge'],
+    ],
     'content' => [
         'max_file_bytes' => (int) env('BEACON_CONTENT_MAX_FILE_BYTES', 268435456),
         'max_total_bytes' => (int) env('BEACON_CONTENT_MAX_TOTAL_BYTES', 536870912),

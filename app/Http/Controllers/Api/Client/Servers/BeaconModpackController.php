@@ -245,7 +245,9 @@ class BeaconModpackController extends ClientApiController
             $active = BeaconOperation::query()
                 ->where('server_id', $server->id)
                 ->where(function ($query) {
-                    $query->where('type', 'like', 'modpack.%')->orWhere('type', 'like', 'mod.%');
+                    $query->where('type', 'like', 'modpack.%')
+                        ->orWhere('type', 'like', 'mod.%')
+                        ->orWhere('type', 'like', 'version.%');
                 })
                 ->whereIn('status', [BeaconOperation::STATUS_PENDING, BeaconOperation::STATUS_RUNNING])
                 ->latest('id')

@@ -38,7 +38,8 @@ class BeaconConfigurationController extends ClientApiController
             ->whereIn('status', [BeaconOperation::STATUS_PENDING, BeaconOperation::STATUS_RUNNING])
             ->where(function ($query) {
                 $query->where('type', 'like', 'minecraft-service.%')
-                    ->orWhere('type', 'like', 'modpack.%');
+                    ->orWhere('type', 'like', 'modpack.%')
+                    ->orWhere('type', 'like', 'version.%');
             })
             ->exists()) {
             throw new ConflictHttpException('Wait for the active Beacon operation before changing Minecraft configuration.');

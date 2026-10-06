@@ -10,12 +10,23 @@ use Pterodactyl\Beacon\Content\Exceptions\ProviderResponseException;
 
 class ModrinthProviderTest extends IntegrationTestCase
 {
+    private string $previousCacheDriver;
+
     public function setUp(): void
     {
         parent::setUp();
+        $this->previousCacheDriver = Cache::getDefaultDriver();
+        Cache::setDefaultDriver('array');
         Cache::flush();
         config()->set('beacon.content.max_file_bytes', 1024 * 1024);
         config()->set('beacon.modrinth.allowed_image_hosts', ['cdn.modrinth.com']);
+    }
+
+    protected function tearDown(): void
+    {
+        Cache::flush();
+        Cache::setDefaultDriver($this->previousCacheDriver);
+        parent::tearDown();
     }
 
     public function testItNormalizesAnExactVersionAndAcceptsOnlyTheModrinthCdn(): void
@@ -76,6 +87,17 @@ class ModrinthProviderTest extends IntegrationTestCase
         $this->expectException(ProviderResponseException::class);
         $this->expectExceptionMessage('client-only');
         app(ModrinthProvider::class)->version('version-one');
+    }
+
+    public function testItReturnsAProviderErrorWhenModrinthCannotBeReached(): void
+    {
+        Http::fake([
+            'https://api.modrinth.com/v2/search*' => Http::failedConnection('TLS connection failed.'),
+        ]);
+
+        $this->expectException(ProviderResponseException::class);
+        $this->expectExceptionMessage('temporarily unavailable');
+        app(ModrinthProvider::class)->search('', '1.21.8', 'forge', 'mod');
     }
 
     private function version(): array

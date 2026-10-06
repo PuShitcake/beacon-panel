@@ -42,7 +42,9 @@ class ServerSoftwareCapabilityService
             ->with('profile')
             ->where('server_id', $server->id)
             ->first();
-        if ($metadata instanceof BeaconServerMetadata && $metadata->profile) {
+        if ($metadata instanceof BeaconServerMetadata
+            && $metadata->profile
+            && $metadata->profile->egg_id === $server->egg_id) {
             return $this->capabilities(strtolower($metadata->profile->loader));
         }
 

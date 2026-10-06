@@ -4,6 +4,8 @@ namespace Pterodactyl\Observers;
 
 use Pterodactyl\Events;
 use Pterodactyl\Models\Subuser;
+use Pterodactyl\Models\Permission;
+use Pterodactyl\Models\BeaconSftpAlias;
 use Pterodactyl\Notifications\AddedToServer;
 use Pterodactyl\Notifications\RemovedFromServer;
 
@@ -36,7 +38,26 @@ class SubuserObserver
      */
     public function deleting(Subuser $subuser): void
     {
+        BeaconSftpAlias::query()
+            ->where('user_id', $subuser->user_id)
+            ->where('server_id', $subuser->server_id)
+            ->delete();
+
         event(new Events\Subuser\Deleting($subuser));
+    }
+
+    /**
+     * Revoke the public alias when a subuser loses SFTP permission. The reservation
+     * remains so that a revoked public username can never be issued again.
+     */
+    public function updated(Subuser $subuser): void
+    {
+        if (!in_array(Permission::ACTION_FILE_SFTP, $subuser->permissions, true)) {
+            BeaconSftpAlias::query()
+                ->where('user_id', $subuser->user_id)
+                ->where('server_id', $subuser->server_id)
+                ->delete();
+        }
     }
 
     /**

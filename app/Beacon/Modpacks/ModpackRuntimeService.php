@@ -186,8 +186,9 @@ class ModpackRuntimeService
         foreach ($egg->variables()->get() as $variable) {
             $name = strtoupper($variable->env_variable);
             $values[$variable->env_variable] = match ($name) {
-                'MC_VERSION', 'MINECRAFT_VERSION', 'MINECRAFT_VERSION_ID' => $release['minecraft_version'],
+                'MC_VERSION', 'MINECRAFT_VERSION', 'MINECRAFT_VERSION_ID', 'VANILLA_VERSION' => $release['minecraft_version'],
                 'FORGE_VERSION' => $this->forgeVersion($release, $variable->default_value),
+                'BUILD_NUMBER' => isset($release['build_number']) ? (string) $release['build_number'] : $variable->default_value,
                 'FABRIC_LOADER_VERSION', 'NEOFORGE_VERSION', 'QUILT_LOADER_VERSION' => $release['loader_version'] ?: $variable->default_value,
                 'SERVER_JARFILE' => $this->serverJarFile($release, $variable->default_value),
                 default => $variable->default_value,

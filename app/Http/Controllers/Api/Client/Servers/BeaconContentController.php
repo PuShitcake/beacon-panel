@@ -124,6 +124,7 @@ class BeaconContentController extends ClientApiController
 
     public function install(BeaconContentInstallRequest $request, Server $server): JsonResponse
     {
+        $this->assertNoVersionOperation($server);
         [$metadata, $projectType] = $this->metadata($server);
         $plan = $this->buildPlan($server, $request->string('version_id')->toString(), $metadata, $projectType);
 
@@ -152,6 +153,7 @@ class BeaconContentController extends ClientApiController
 
     public function remove(BeaconContentDeleteRequest $request, Server $server, int $installationId): JsonResponse
     {
+        $this->assertNoVersionOperation($server);
         $this->metadata($server);
         $installation = BeaconContentInstallation::query()
             ->where('server_id', $server->id)
@@ -215,6 +217,17 @@ class BeaconContentController extends ClientApiController
         }
 
         return [$metadata, 'plugin'];
+    }
+
+    private function assertNoVersionOperation(Server $server): void
+    {
+        if (BeaconOperation::query()
+            ->where('server_id', $server->id)
+            ->where('type', 'like', 'version.%')
+            ->whereIn('status', [BeaconOperation::STATUS_PENDING, BeaconOperation::STATUS_RUNNING])
+            ->exists()) {
+            throw new ConflictHttpException('Wait for the active Version Manager operation before changing plugins.');
+        }
     }
 
     private function buildPlan(Server $server, string $versionId, BeaconServerMetadata $metadata, string $projectType): array

@@ -4,6 +4,7 @@ namespace Pterodactyl\Observers;
 
 use Pterodactyl\Events;
 use Pterodactyl\Models\Server;
+use Pterodactyl\Models\BeaconSftpAlias;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 
 class ServerObserver
@@ -71,6 +72,13 @@ class ServerObserver
      */
     public function updated(Server $server): void
     {
+        if ($server->wasChanged('owner_id')) {
+            BeaconSftpAlias::query()
+                ->where('user_id', (int) $server->getOriginal('owner_id'))
+                ->where('server_id', $server->id)
+                ->delete();
+        }
+
         event(new Events\Server\Updated($server));
     }
 }

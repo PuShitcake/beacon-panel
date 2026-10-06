@@ -8,6 +8,7 @@ use Pterodactyl\Models\User;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Models\Permission;
 use Pterodactyl\Models\UserSSHKey;
+use Pterodactyl\Beacon\Sftp\PublicSftpAliasService;
 use Pterodactyl\Tests\Integration\IntegrationTestCase;
 
 class SftpAuthenticationControllerTest extends IntegrationTestCase
@@ -89,6 +90,56 @@ class SftpAuthenticationControllerTest extends IntegrationTestCase
             'password' => 'foobar',
         ])
             ->assertOk();
+    }
+
+    public function testPublicAliasAuthenticatesNativeUserWithPasswordAndPublicKey(): void
+    {
+        $alias = $this->app->make(PublicSftpAliasService::class)->provision($this->user, $this->server);
+
+        $this->postJson('/api/remote/sftp/auth', [
+            'username' => $alias->public_username,
+            'password' => 'foobar',
+        ])
+            ->assertOk()
+            ->assertJsonPath('user', $this->user->uuid)
+            ->assertJsonPath('server', $this->server->uuid)
+            ->assertJsonPath('permissions', ['*']);
+
+        $key = UserSSHKey::factory()->for($this->user)->create();
+        $this->postJson('/api/remote/sftp/auth', [
+            'type' => 'public_key',
+            'username' => $alias->public_username,
+            'password' => $key->public_key,
+        ])->assertOk();
+    }
+
+    public function testNativeCompositeUsernameIsRejectedAfterPublicAliasProvisioning(): void
+    {
+        $this->app->make(PublicSftpAliasService::class)->provision($this->user, $this->server);
+
+        $this->postJson('/api/remote/sftp/auth', [
+            'username' => $this->getUsername(),
+            'password' => 'foobar',
+        ])->assertForbidden();
+    }
+
+    public function testUnknownAndWrongNodePublicAliasesAreRejected(): void
+    {
+        $unknown = sprintf('@%d.aaaaaaaa', $this->user->id);
+        $this->assertDatabaseMissing('beacon_sftp_aliases', ['public_username' => $unknown]);
+        $this->postJson('/api/remote/sftp/auth', [
+            'username' => $unknown,
+            'password' => 'foobar',
+        ])->assertForbidden();
+
+        $alias = $this->app->make(PublicSftpAliasService::class)->provision($this->user, $this->server);
+        $otherNode = $this->createServerModel()->node;
+        $this->setAuthorization($otherNode);
+
+        $this->postJson('/api/remote/sftp/auth', [
+            'username' => $alias->public_username,
+            'password' => 'foobar',
+        ])->assertForbidden();
     }
 
     /**
