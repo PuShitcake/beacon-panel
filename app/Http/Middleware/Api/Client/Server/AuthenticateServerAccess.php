@@ -31,9 +31,6 @@ class AuthenticateServerAccess
         'api:beacon.minecraft-services.context',
         'api:beacon.minecraft-services.history',
         'api:beacon.minecraft-services.operation',
-        'api:beacon.versions.context',
-        'api:beacon.versions.history',
-        'api:beacon.versions.operation',
     ];
 
     /**

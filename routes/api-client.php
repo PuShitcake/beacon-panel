@@ -142,22 +142,6 @@ Route::group([
             ->name('api:beacon.mods.operation');
     });
 
-    Route::group(['prefix' => '/beacon/versions'], function () {
-        Route::middleware('throttle:api.beacon.content')->group(function () {
-            Route::get('/context', [Client\Servers\BeaconVersionController::class, 'context'])
-                ->name('api:beacon.versions.context');
-            Route::get('/software/{software}', [Client\Servers\BeaconVersionController::class, 'versions']);
-            Route::get('/software/{software}/{version}', [Client\Servers\BeaconVersionController::class, 'builds']);
-            Route::get('/history', [Client\Servers\BeaconVersionController::class, 'history'])
-                ->name('api:beacon.versions.history');
-            Route::post('/change', [Client\Servers\BeaconVersionController::class, 'change'])
-                ->middleware(RequireBeaconRequestMetadata::class);
-        });
-        Route::get('/operations/{operationUuid}', [Client\Servers\BeaconVersionController::class, 'operation'])
-            ->middleware('throttle:api.beacon.poll')
-            ->name('api:beacon.versions.operation');
-    });
-
     Route::group([
         'prefix' => '/beacon/minecraft-services',
         'middleware' => RequireBeaconRequestMetadata::class,

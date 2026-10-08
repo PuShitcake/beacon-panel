@@ -17,7 +17,6 @@ import ContentContainer from '@/components/server/beacon/ContentContainer';
 import ConfigurationContainer from '@/components/server/beacon/ConfigurationContainer';
 import ModpackInstallerContainer from '@/components/server/beacon/ModpackInstallerContainer';
 import ModInstallerContainer from '@/components/server/beacon/ModInstallerContainer';
-import VersionManagerContainer from '@/components/server/beacon/VersionManagerContainer';
 
 // Each of the router files is already code split out appropriately — so
 // all of the items above will only be loaded in when that router is loaded.
@@ -107,13 +106,6 @@ export default {
             ownerOnly: true,
             name: 'Mod Installer',
             component: ModInstallerContainer,
-        },
-        {
-            path: '/versions',
-            permission: null,
-            ownerOnly: true,
-            name: 'Versions',
-            component: VersionManagerContainer,
         },
         {
             path: '/configuration',

@@ -96,6 +96,22 @@ class ProcessModpackOperationJob implements ShouldQueue
 
                 return;
             }
+            if (($payload['runtime_mode'] ?? null) === 'curseforge_generic') {
+                $this->processCurseForgeEgg(
+                    $operation,
+                    $server,
+                    $payload,
+                    $phase,
+                    $prepare,
+                    $runtime,
+                    $reinstall,
+                    $files,
+                    $deleteBackup,
+                    $managedMods,
+                );
+
+                return;
+            }
 
             if ($phase === 'prepare') {
                 $runtime->validateTargets($payload['release']);
@@ -250,6 +266,103 @@ class ProcessModpackOperationJob implements ShouldQueue
 
             $this->failOperation($operation, 'modpack_operation_failed', $this->safeError($exception));
             $this->unlockUnusedInstallBackup($operation, $server);
+        }
+    }
+
+    private function processCurseForgeEgg(
+        BeaconOperation $operation,
+        Server $server,
+        array &$payload,
+        string &$phase,
+        PrepareModpackOperationService $prepare,
+        ModpackRuntimeService $runtime,
+        ReinstallServerService $reinstall,
+        DaemonFileRepository $files,
+        DeleteBackupService $deleteBackup,
+        ReconcileManagedModsForModpackService $managedMods,
+    ): void {
+        if ($phase === 'prepare') {
+            $runtime->validateCurseForgeTarget($payload['release']);
+            if (!$prepare->handle($operation, $server)) {
+                $this->release(10);
+
+                return;
+            }
+            $payload = $operation->fresh()->payload;
+            $payload['original_runtime'] = $payload['original_runtime'] ?? $runtime->snapshot($server);
+            $payload['phase'] = 'switch_curseforge';
+            $payload['progress'] = [
+                'stage' => 'preparing',
+                'percent' => 20,
+                'message' => 'Preparing the CurseForge Generic Egg.',
+            ];
+            $operation->forceFill(['payload' => $payload])->save();
+            $phase = 'switch_curseforge';
+        }
+
+        if ($phase === 'switch_curseforge') {
+            $repository = $files->setServer($server);
+            if (($payload['mutation_started'] ?? false) !== true) {
+                $payload['mutation_started'] = true;
+                $operation->forceFill(['payload' => $payload])->save();
+            }
+            if (!array_key_exists('managed_mods_preserved', $payload)) {
+                $payload['managed_mods_preserved'] = ($payload['action'] ?? null) === 'install'
+                    && ($payload['delete_files'] ?? false) === true
+                        ? []
+                        : $managedMods->preserve(
+                            $server,
+                            $repository,
+                            $operation->uuid,
+                            (string) ($payload['action'] ?? 'install'),
+                        );
+                $operation->forceFill(['payload' => $payload])->save();
+            }
+            $payload['preserved_paths'] = $this->cleanFilesIfRequested($repository, $payload, $operation->uuid);
+            $payload['phase'] = 'wait_curseforge';
+            $payload['progress'] = [
+                'stage' => 'installing',
+                'percent' => 40,
+                'message' => 'Installing the selected modpack with CurseForge Generic.',
+            ];
+            $operation->forceFill(['payload' => $payload])->save();
+            $server = $runtime->switchToCurseForge($server, $payload['release']);
+            $reinstall->handle($server);
+            $this->release(10);
+
+            return;
+        }
+
+        if ($phase === 'wait_curseforge') {
+            if ($this->waitForServerOperation($server)) {
+                $this->release(10);
+
+                return;
+            }
+            $repository = $files->setServer($server);
+            $this->restorePreservedFiles($repository, $payload, $operation->uuid);
+            $payload['preserved_paths_restored'] = true;
+            $payload['phase'] = 'finalize_curseforge';
+            $payload['progress'] = [
+                'stage' => 'finalizing',
+                'percent' => 85,
+                'message' => 'Finalizing the CurseForge modpack installation.',
+            ];
+            $operation->forceFill(['payload' => $payload])->save();
+            $phase = 'finalize_curseforge';
+        }
+
+        if ($phase === 'finalize_curseforge') {
+            if (!array_key_exists('managed_mod_reconciliation', $payload)) {
+                $payload['managed_mod_reconciliation'] = $managedMods->restore(
+                    $files->setServer($server),
+                    $operation->uuid,
+                    $payload['release'],
+                    $payload['managed_mods_preserved'] ?? [],
+                );
+                $operation->forceFill(['payload' => $payload])->save();
+            }
+            $this->finalizeInstallation($operation, $server, $payload, $deleteBackup);
         }
     }
 

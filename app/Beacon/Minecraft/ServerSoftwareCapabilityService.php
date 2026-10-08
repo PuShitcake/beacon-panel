@@ -34,7 +34,7 @@ class ServerSoftwareCapabilityService
         if ($installation instanceof BeaconModpackInstallation) {
             $loader = strtolower($installation->loader);
             if (in_array($loader, self::MOD_LOADERS, true)) {
-                return $this->capabilities($loader);
+                return $this->capabilities($loader, true);
             }
         }
 
@@ -65,11 +65,12 @@ class ServerSoftwareCapabilityService
             'fabric' => 'fabric',
             'neoforge', 'neoforge minecraft' => 'neoforge',
             'quilt', 'quilt minecraft' => 'quilt',
+            'curseforge generic' => 'curseforge',
             default => 'unknown',
         };
     }
 
-    private function capabilities(string $software): array
+    private function capabilities(string $software, bool $managedModpack = false): array
     {
         $name = match ($software) {
             'vanilla' => 'Minecraft Vanilla',
@@ -83,13 +84,14 @@ class ServerSoftwareCapabilityService
             default => 'Unsupported software',
         };
         $plugins = $software === 'paper';
-        $mods = in_array($software, self::MOD_LOADERS, true);
-        $modpacks = $mods || in_array($software, ['curseforge', 'modrinth'], true);
-        $modpackLoaders = $mods ? [$software] : ($modpacks ? self::MOD_LOADERS : []);
-        $modpackProviders = match ($software) {
-            'curseforge' => ['curseforge'],
-            'modrinth' => ['modrinth'],
-            default => [],
+        $mods = $software === 'forge';
+        $modpacks = $managedModpack || $software === 'curseforge';
+        $modpackLoaders = $modpacks ? self::MOD_LOADERS : [];
+        $modpackProviders = $modpacks ? ['curseforge'] : [];
+
+        $modUnavailableReason = match ($software) {
+            'curseforge' => "This server is currently using {$name}. Install a Forge modpack before installing mods.",
+            default => "This server is currently using {$name}. Switch to Forge before installing mods.",
         };
 
         return [
@@ -103,12 +105,10 @@ class ServerSoftwareCapabilityService
             'plugin_unavailable_reason' => $plugins
                 ? null
                 : "This server is currently using {$name}. Plugins are only available for Paper servers.",
-            'mod_unavailable_reason' => $mods
-                ? null
-                : "This server is currently using {$name}. Switch to Forge, Fabric, NeoForge, or Quilt before installing mods.",
+            'mod_unavailable_reason' => $mods ? null : $modUnavailableReason,
             'modpack_unavailable_reason' => $modpacks
                 ? null
-                : "This server is currently using {$name}. Switch to Forge, Fabric, NeoForge, or Quilt before installing modpacks.",
+                : "This server is currently using {$name}. Modpacks require the CurseForge Generic Egg.",
         ];
     }
 }

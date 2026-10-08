@@ -16,6 +16,7 @@ use Pterodactyl\Beacon\Minecraft\ServerSoftwareCapabilityService;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Pterodactyl\Beacon\Modpacks\Providers\ModpackProviderRegistry;
 use Pterodactyl\Beacon\Modpacks\Exceptions\ModpackProviderException;
+use Pterodactyl\Beacon\Modpacks\Providers\CurseForgeModpackProvider;
 use Pterodactyl\Http\Requests\Api\Client\Servers\BeaconModpackRequest;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 use Pterodactyl\Http\Requests\Api\Client\Servers\BeaconModpackInstallRequest;
@@ -50,11 +51,13 @@ class BeaconModpackController extends ClientApiController
             'software' => $capabilities['software'],
             'software_name' => $capabilities['name'],
             'unavailable_reason' => $capabilities['modpack_unavailable_reason'],
-            'providers' => $this->providers->status(),
+            'providers' => collect($this->providers->status())->where('key', 'curseforge')->values()->all(),
             'installation' => $installation ? $this->installationData($installation) : null,
             'active_operation' => $active ? $this->operationData($active) : null,
             'requires_stopped_server' => true,
             'backup_before_mutation' => true,
+            'runtime' => 'curseforge_generic',
+            'awaiting_selection' => $this->runtime->isCurseForgeServer($server) && !$installation,
         ]]);
     }
 
@@ -128,7 +131,11 @@ class BeaconModpackController extends ClientApiController
             $this->installation($server, (int) ($payload['installation_id'] ?? 0));
         }
         if (isset($payload['release']) && is_array($payload['release'])) {
-            $this->runtime->validateTargets($payload['release']);
+            if (($payload['runtime_mode'] ?? null) === 'curseforge_generic') {
+                $this->runtime->validateCurseForgeTarget($payload['release']);
+            } else {
+                $this->runtime->validateTargets($payload['release']);
+            }
             $this->assertReleaseCompatible($capabilities, $payload['release']);
         }
 
@@ -144,15 +151,18 @@ class BeaconModpackController extends ClientApiController
         if (BeaconModpackInstallation::query()->where('server_id', $server->id)->exists()) {
             throw new ConflictHttpException('This server already has a managed modpack. Use update, reinstall, or uninstall.');
         }
+        if (!$this->runtime->isCurseForgeServer($server)) {
+            throw new ConflictHttpException('Install modpacks on a server that uses the CurseForge Generic Egg.');
+        }
         if ($request->boolean('delete_files') && !hash_equals($server->name, $request->string('confirmation')->toString())) {
             throw new HttpException(422, 'Type the exact server name to confirm deleting its files.');
         }
         $provider = $this->provider($request->string('provider')->toString());
-        $release = $this->providerCall(fn () => $provider->release(
+        $release = $this->providerCall(fn () => $provider->selection(
             $request->string('project_id')->toString(),
             $request->string('version_id')->toString(),
         ));
-        $this->runtime->validateTargets($release);
+        $this->runtime->validateCurseForgeTarget($release);
         $this->assertReleaseCompatible($capabilities, $release);
 
         return $this->start($request, $server, 'install', [
@@ -165,6 +175,7 @@ class BeaconModpackController extends ClientApiController
             ],
             'delete_files' => $request->boolean('delete_files'),
             'release' => $release,
+            'runtime_mode' => 'curseforge_generic',
             'phase' => 'prepare',
         ]);
     }
@@ -173,20 +184,33 @@ class BeaconModpackController extends ClientApiController
     {
         $capabilities = $this->assertModpackAvailable($server);
         $installation = $this->installation($server, $installationId);
+        $this->assertCurseForgeInstallation($installation);
         $versionId = $request->string('version_id')->toString();
         if ($versionId === '') {
             throw new HttpException(422, 'Choose the modpack version to install.');
         }
-        $provider = $this->provider($installation->provider);
-        $release = $this->providerCall(fn () => $provider->release($installation->project_id, $versionId));
-        $this->runtime->validateTargets($release);
+        $providerKey = $request->filled('provider')
+            ? $request->string('provider')->toString()
+            : $installation->provider;
+        $projectId = $request->filled('project_id')
+            ? $request->string('project_id')->toString()
+            : $installation->project_id;
+        $provider = $this->provider($providerKey);
+        $release = $this->providerCall(fn () => $provider->selection($projectId, $versionId));
+        $this->runtime->validateCurseForgeTarget($release);
         $this->assertReleaseCompatible($capabilities, $release);
 
         return $this->start($request, $server, 'update', [
             'action' => 'update',
-            'intent' => ['installation_id' => $installation->id, 'version_id' => $versionId],
+            'intent' => [
+                'installation_id' => $installation->id,
+                'provider' => $providerKey,
+                'project_id' => $projectId,
+                'version_id' => $versionId,
+            ],
             'installation_id' => $installation->id,
             'release' => $release,
+            'runtime_mode' => 'curseforge_generic',
             'phase' => 'prepare',
         ]);
     }
@@ -195,9 +219,10 @@ class BeaconModpackController extends ClientApiController
     {
         $capabilities = $this->assertModpackAvailable($server);
         $installation = $this->installation($server, $installationId);
+        $this->assertCurseForgeInstallation($installation);
         $provider = $this->provider($installation->provider);
-        $release = $this->providerCall(fn () => $provider->release($installation->project_id, $installation->version_id));
-        $this->runtime->validateTargets($release);
+        $release = $this->providerCall(fn () => $provider->selection($installation->project_id, $installation->version_id));
+        $this->runtime->validateCurseForgeTarget($release);
         $this->assertReleaseCompatible($capabilities, $release);
 
         return $this->start($request, $server, 'reinstall', [
@@ -205,6 +230,7 @@ class BeaconModpackController extends ClientApiController
             'intent' => ['installation_id' => $installation->id],
             'installation_id' => $installation->id,
             'release' => $release,
+            'runtime_mode' => 'curseforge_generic',
             'phase' => 'prepare',
         ]);
     }
@@ -246,8 +272,7 @@ class BeaconModpackController extends ClientApiController
                 ->where('server_id', $server->id)
                 ->where(function ($query) {
                     $query->where('type', 'like', 'modpack.%')
-                        ->orWhere('type', 'like', 'mod.%')
-                        ->orWhere('type', 'like', 'version.%');
+                        ->orWhere('type', 'like', 'mod.%');
                 })
                 ->whereIn('status', [BeaconOperation::STATUS_PENDING, BeaconOperation::STATUS_RUNNING])
                 ->latest('id')
@@ -296,9 +321,17 @@ class BeaconModpackController extends ClientApiController
         return new JsonResponse(['data' => $this->operationData($operation)], JsonResponse::HTTP_ACCEPTED);
     }
 
-    private function provider(string $key): \Pterodactyl\Beacon\Modpacks\Providers\ModpackProvider
+    private function provider(string $key): CurseForgeModpackProvider
     {
-        return $this->providerCall(fn () => $this->providers->get($key));
+        if ($key !== 'curseforge') {
+            throw new HttpException(422, 'The Modpack Installer supports CurseForge modpacks only.');
+        }
+        $provider = $this->providerCall(fn () => $this->providers->get($key));
+        if (!$provider instanceof CurseForgeModpackProvider) {
+            throw new \LogicException('The CurseForge modpack provider is not registered correctly.');
+        }
+
+        return $provider;
     }
 
     private function assertModpackAvailable(Server $server): array
@@ -340,6 +373,13 @@ class BeaconModpackController extends ClientApiController
     private function installation(Server $server, int $id): BeaconModpackInstallation
     {
         return BeaconModpackInstallation::query()->where('server_id', $server->id)->whereKey($id)->firstOrFail();
+    }
+
+    private function assertCurseForgeInstallation(BeaconModpackInstallation $installation): void
+    {
+        if ($installation->provider !== 'curseforge') {
+            throw new ConflictHttpException('Legacy non-CurseForge modpacks can only be restored or uninstalled.');
+        }
     }
 
     private function installationData(BeaconModpackInstallation $installation): array

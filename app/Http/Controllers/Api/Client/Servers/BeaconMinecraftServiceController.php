@@ -133,8 +133,7 @@ class BeaconMinecraftServiceController extends ClientApiController
                 ->where(function ($query) {
                     $query->where('type', 'like', 'minecraft-service.%')
                         ->orWhere('type', 'like', 'mod.%')
-                        ->orWhere('type', 'like', 'modpack.%')
-                        ->orWhere('type', 'like', 'version.%');
+                        ->orWhere('type', 'like', 'modpack.%');
                 })
                 ->whereIn('status', [BeaconOperation::STATUS_PENDING, BeaconOperation::STATUS_RUNNING])
                 ->latest('id')

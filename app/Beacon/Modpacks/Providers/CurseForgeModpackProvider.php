@@ -91,16 +91,11 @@ class CurseForgeModpackProvider extends AbstractModpackProvider
 
     public function release(string $projectId, string $versionId): array
     {
+        $selection = $this->selection($projectId, $versionId);
         $selected = $this->file($projectId, $versionId);
         $file = isset($selected['serverPackFileId']) && $selected['serverPackFileId']
             ? $this->file($projectId, (string) $selected['serverPackFileId'])
             : $selected;
-        $targets = array_values(array_filter($selected['gameVersions'] ?? [], 'is_string'));
-        $minecraft = $this->minecraftVersionFrom($targets);
-        $loader = $this->loaderFrom($targets);
-        if (!$minecraft || !$loader) {
-            throw new ModpackProviderException('The selected CurseForge file has no supported Minecraft loader target.');
-        }
         $url = $this->nullableString($file, 'downloadUrl');
         if (!$url) {
             throw new ModpackProviderException('The author has disabled third-party downloads for this CurseForge file.');
@@ -108,6 +103,31 @@ class CurseForgeModpackProvider extends AbstractModpackProvider
         $hashes = collect($file['hashes'] ?? []);
         $sha1Hash = $hashes->firstWhere('algo', 1);
         $sha1 = is_array($sha1Hash) ? ($sha1Hash['value'] ?? null) : null;
+
+        return array_merge($selection, [
+            'install_mode' => 'archive',
+            'archive' => [
+                'url' => $this->safeDownloadUrl($url),
+                'filename' => $this->requiredString($file, 'fileName'),
+                'size' => (int) ($file['fileLength'] ?? 0),
+                'sha1' => is_string($sha1) ? strtolower($sha1) : null,
+            ],
+        ]);
+    }
+
+    /**
+     * Resolve the trusted project and file metadata needed by the
+     * CurseForge Generic Egg without asking Panel to download the archive.
+     */
+    public function selection(string $projectId, string $versionId): array
+    {
+        $selected = $this->file($projectId, $versionId);
+        $targets = array_values(array_filter($selected['gameVersions'] ?? [], 'is_string'));
+        $minecraft = $this->minecraftVersionFrom($targets);
+        $loader = $this->loaderFrom($targets);
+        if (!$minecraft || !$loader) {
+            throw new ModpackProviderException('The selected CurseForge file has no supported Minecraft loader target.');
+        }
         $projectResponse = $this->get('/mods/' . rawurlencode($projectId));
         $project = $projectResponse['data'] ?? null;
         if (!is_array($project) || (int) ($project['classId'] ?? 0) !== self::MODPACK_CLASS_ID) {
@@ -126,13 +146,6 @@ class CurseForgeModpackProvider extends AbstractModpackProvider
             'loader' => $loader,
             'loader_version' => null,
             'java_version' => $this->javaVersion($minecraft),
-            'install_mode' => 'archive',
-            'archive' => [
-                'url' => $this->safeDownloadUrl($url),
-                'filename' => $this->requiredString($file, 'fileName'),
-                'size' => (int) ($file['fileLength'] ?? 0),
-                'sha1' => is_string($sha1) ? strtolower($sha1) : null,
-            ],
         ];
     }
 

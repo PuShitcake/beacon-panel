@@ -18,7 +18,7 @@ class BeaconModpackRequest extends ClientApiRequest
     public function rules(): array
     {
         return [
-            'provider' => 'sometimes|string|in:modrinth,curseforge,ftb,atlauncher,technic,voidswrath',
+            'provider' => 'sometimes|string|in:curseforge',
             'query' => 'sometimes|nullable|string|max:100',
             'page' => 'sometimes|integer|min:1|max:1000',
             'page_size' => 'sometimes|integer|in:10,20,50',

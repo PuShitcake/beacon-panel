@@ -100,6 +100,36 @@ class ModrinthProviderTest extends IntegrationTestCase
         app(ModrinthProvider::class)->search('', '1.21.8', 'forge', 'mod');
     }
 
+    public function testItAddsAnAllowlistedModCategoryFacet(): void
+    {
+        Http::fake([
+            'https://api.modrinth.com/v2/search*' => Http::response([
+                'offset' => 0,
+                'limit' => 20,
+                'total_hits' => 0,
+                'hits' => [],
+            ]),
+        ]);
+
+        app(ModrinthProvider::class)->search('', '1.20.1', 'forge', 'mod', 0, 'technology');
+
+        Http::assertSent(function ($request) {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            $facets = json_decode((string) ($query['facets'] ?? ''), true);
+
+            return in_array(['categories:forge'], $facets, true)
+                && in_array(['categories:technology'], $facets, true);
+        });
+    }
+
+    public function testItRejectsUnknownModCategories(): void
+    {
+        $this->expectException(ProviderResponseException::class);
+        $this->expectExceptionMessage('category is not supported');
+
+        app(ModrinthProvider::class)->search('', '1.20.1', 'forge', 'mod', 0, 'not-a-real-category');
+    }
+
     private function version(): array
     {
         return [

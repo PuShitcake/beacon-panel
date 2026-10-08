@@ -10,6 +10,7 @@ use Pterodactyl\Beacon\Modpacks\Providers\TechnicModpackProvider;
 use Pterodactyl\Beacon\Modpacks\Providers\ModrinthModpackProvider;
 use Pterodactyl\Beacon\Modpacks\Exceptions\ModpackProviderException;
 use Pterodactyl\Beacon\Modpacks\Providers\AtLauncherModpackProvider;
+use Pterodactyl\Beacon\Modpacks\Providers\CurseForgeModpackProvider;
 
 class ModpackProviderTest extends IntegrationTestCase
 {
@@ -184,5 +185,32 @@ class ModpackProviderTest extends IntegrationTestCase
         $this->expectException(ModpackProviderException::class);
         $this->expectExceptionMessage('server archive');
         app(TechnicModpackProvider::class)->release('client-pack', '1.0.0');
+    }
+
+    public function testCurseForgeSelectionDoesNotRequirePanelToDownloadTheArchive(): void
+    {
+        Http::fake([
+            'https://api.curseforge.com/v1/mods/123/files/456' => Http::response(['data' => [
+                'id' => 456,
+                'displayName' => 'Forge Pack 1.0',
+                'gameVersions' => ['1.20.1', 'Forge'],
+                'downloadUrl' => null,
+            ]]),
+            'https://api.curseforge.com/v1/mods/123' => Http::response(['data' => [
+                'id' => 123,
+                'classId' => 4471,
+                'name' => 'Forge Pack',
+                'slug' => 'forge-pack',
+                'logo' => ['thumbnailUrl' => 'https://media.forgecdn.net/icon.png'],
+            ]]),
+        ]);
+
+        $selection = app(CurseForgeModpackProvider::class)->selection('123', '456');
+
+        $this->assertSame('curseforge', $selection['provider']);
+        $this->assertSame('forge', $selection['loader']);
+        $this->assertSame('1.20.1', $selection['minecraft_version']);
+        $this->assertSame(17, $selection['java_version']);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'download-url'));
     }
 }

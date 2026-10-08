@@ -11,6 +11,7 @@ export interface ModContext {
     loader: 'forge' | 'neoforge' | 'fabric' | 'quilt' | null;
     loader_version: string | null;
     game_version: string | null;
+    categories: string[];
     active_operation: ModOperation | null;
     automatic_power: boolean;
     backup_before_mutation: boolean;
@@ -112,9 +113,12 @@ export const getModHistory = async (server: string): Promise<ModOperation[]> => 
 export const searchMods = async (
     server: string,
     query: string,
-    offset = 0
+    offset = 0,
+    category = ''
 ): Promise<{ projects: ModProject[]; offset: number; limit: number; total: number }> => {
-    const { data } = await http.get(`${base(server)}/search`, { params: { query, offset } });
+    const { data } = await http.get(`${base(server)}/search`, {
+        params: { query, offset, ...(category ? { category } : {}) },
+    });
     return data.data;
 };
 

@@ -14,7 +14,7 @@
 @endsection
 
 @section('content')
-<form action="{{ route('admin.servers.new') }}" method="POST">
+<form id="serverCreationForm" action="{{ route('admin.servers.new') }}" method="POST">
     <div class="row">
         <div class="col-xs-12">
             <div class="box">
@@ -304,7 +304,7 @@
 
                 <div class="box-footer">
                     {!! csrf_field() !!}
-                    <input type="submit" class="btn btn-success pull-right" value="Create Server" />
+                    <input id="createServerButton" type="submit" class="btn btn-success pull-right" value="Create Server" />
                 </div>
             </div>
         </div>
@@ -317,6 +317,18 @@
     {!! Theme::js('vendor/lodash/lodash.js') !!}
 
     <script type="application/javascript">
+        document.getElementById('serverCreationForm').addEventListener('submit', function () {
+            var button = document.getElementById('createServerButton');
+
+            if (button.disabled) {
+                return;
+            }
+
+            button.disabled = true;
+            button.value = 'Creating Server...';
+            button.classList.add('disabled');
+        });
+
         // Persist 'Service Variables'
         function serviceVariablesUpdated(eggId, ids) {
             @if (old('egg_id'))

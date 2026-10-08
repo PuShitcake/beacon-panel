@@ -55,6 +55,7 @@ const ModInstallerContainer = () => {
     const [history, setHistory] = useState<ModOperation[]>([]);
     const [projects, setProjects] = useState<ModProject[]>([]);
     const [query, setQuery] = useState('');
+    const [category, setCategory] = useState('');
     const [offset, setOffset] = useState(0);
     const [total, setTotal] = useState(0);
     const [limit, setLimit] = useState(20);
@@ -89,7 +90,7 @@ const ModInstallerContainer = () => {
         setWorking(true);
         clearFlashes('beacon-mods');
         try {
-            const result = await searchMods(server.uuid, query.trim(), nextOffset);
+            const result = await searchMods(server.uuid, query.trim(), nextOffset, category);
             setProjects(result.projects);
             setOffset(result.offset);
             setLimit(result.limit);
@@ -349,8 +350,7 @@ const ModInstallerContainer = () => {
             {!context?.enabled ? (
                 <ContentBox title={'Mod Installer unavailable'}>
                     <p css={tw`text-sm text-neutral-300`}>
-                        {context?.unavailable_reason ||
-                            'Switch to Forge, Fabric, NeoForge, or Quilt before installing mods.'}
+                        {context?.unavailable_reason || 'Switch to Forge before installing mods.'}
                     </p>
                 </ContentBox>
             ) : (
@@ -445,17 +445,42 @@ const ModInstallerContainer = () => {
                         <p css={tw`text-xs text-neutral-400 mb-3`}>
                             Modrinth · Minecraft {context.game_version} · {context.loader}
                         </p>
-                        <div css={tw`flex gap-3`}>
-                            <Input
-                                value={query}
-                                onChange={(event) => setQuery(event.currentTarget.value)}
-                                onKeyDown={(event) => event.key === 'Enter' && void runSearch(0)}
-                                placeholder={'Search mods or leave blank for popular mods'}
-                                maxLength={100}
-                            />
-                            <Button type={'button'} onClick={() => void runSearch(0)} disabled={working}>
-                                Search
-                            </Button>
+                        <div css={tw`grid grid-cols-1 md:grid-cols-4 gap-3`}>
+                            <div>
+                                <label css={tw`block text-xs uppercase text-neutral-400 mb-1`}>Category</label>
+                                <Select
+                                    value={category}
+                                    onChange={(event) => {
+                                        setCategory(event.currentTarget.value);
+                                        setOffset(0);
+                                    }}
+                                >
+                                    <option value={''}>All categories</option>
+                                    {context.categories.map((item) => (
+                                        <option value={item} key={item}>
+                                            {item
+                                                .split('-')
+                                                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                                                .join(' ')}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </div>
+                            <div css={tw`md:col-span-3`}>
+                                <label css={tw`block text-xs uppercase text-neutral-400 mb-1`}>Search query</label>
+                                <div css={tw`flex gap-3`}>
+                                    <Input
+                                        value={query}
+                                        onChange={(event) => setQuery(event.currentTarget.value)}
+                                        onKeyDown={(event) => event.key === 'Enter' && void runSearch(0)}
+                                        placeholder={'Search mods or leave blank for popular mods'}
+                                        maxLength={100}
+                                    />
+                                    <Button type={'button'} onClick={() => void runSearch(0)} disabled={working}>
+                                        Search
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                         <div css={tw`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 mt-4`}>
                             {projects.map((item) => (

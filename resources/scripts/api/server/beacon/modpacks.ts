@@ -1,7 +1,7 @@
 import http from '@/api/http';
 import { v4 as uuid } from 'uuid';
 
-export type ModpackProviderKey = 'modrinth' | 'curseforge' | 'ftb' | 'atlauncher' | 'technic' | 'voidswrath';
+export type ModpackProviderKey = 'curseforge';
 
 export interface ModpackProviderStatus {
     key: ModpackProviderKey;
@@ -72,6 +72,8 @@ export interface ModpackContext {
     active_operation: ModpackOperation | null;
     requires_stopped_server: boolean;
     backup_before_mutation: boolean;
+    runtime: 'curseforge_generic';
+    awaiting_selection: boolean;
 }
 
 export interface ModpackSearchResult {
@@ -158,11 +160,13 @@ export const installModpack = async (
 export const updateModpack = async (
     server: string,
     installation: number,
+    provider: ModpackProviderKey,
+    project: string,
     version: string
 ): Promise<ModpackOperation> => {
     const { data } = await http.post(
         `${base(server)}/installations/${installation}/update`,
-        { version_id: version },
+        { provider, project_id: project, version_id: version },
         { headers: mutationHeaders() }
     );
     return data.data;

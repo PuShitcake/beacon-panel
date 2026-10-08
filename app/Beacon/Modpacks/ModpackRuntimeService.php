@@ -48,6 +48,54 @@ class ModpackRuntimeService
         }
     }
 
+    public function validateCurseForgeTarget(array $release): void
+    {
+        if (($release['provider'] ?? null) !== 'curseforge') {
+            throw new ModpackProviderException('The CurseForge Generic Egg only accepts CurseForge modpacks.');
+        }
+        foreach (['project_id', 'version_id'] as $key) {
+            if (!is_string($release[$key] ?? null) || !ctype_digit($release[$key])) {
+                throw new ModpackProviderException("The selected CurseForge {$key} is invalid.");
+            }
+        }
+
+        $egg = $this->curseForgeEgg();
+        $variables = $egg->variables()->pluck('env_variable')->all();
+        foreach (['PROJECT_ID', 'VERSION'] as $required) {
+            if (!in_array($required, $variables, true)) {
+                throw new ModpackProviderException("The CurseForge Generic Egg is missing the {$required} variable.");
+            }
+        }
+        $this->curseForgeImage($egg, (int) ($release['java_version'] ?? 0));
+    }
+
+    public function isCurseForgeServer(Server $server): bool
+    {
+        $server->loadMissing('egg.nest');
+        $egg = $server->egg;
+
+        return $egg instanceof Egg
+            && $egg->nest?->name === config('beacon.modpacks.nest.name')
+            && $egg->name === config('beacon.modpacks.nest.curseforge_egg');
+    }
+
+    public function switchToCurseForge(Server $server, array $release): Server
+    {
+        $this->validateCurseForgeTarget($release);
+        $egg = $this->curseForgeEgg();
+
+        return $this->switch(
+            $server,
+            $egg,
+            $this->curseForgeImage($egg, (int) $release['java_version']),
+            $egg->startup,
+            [
+                'PROJECT_ID' => $release['project_id'],
+                'VERSION' => $release['version_id'],
+            ],
+        );
+    }
+
     public function switchToInstaller(Server $server): Server
     {
         $egg = $this->installerEgg();
@@ -116,6 +164,38 @@ class ModpackRuntimeService
         }
 
         return $egg;
+    }
+
+    private function curseForgeEgg(): Egg
+    {
+        $nest = $this->beaconNest();
+        $name = config('beacon.modpacks.nest.curseforge_egg');
+        $egg = Egg::query()->where('nest_id', $nest->id)->where('name', $name)->first();
+        if (!$egg instanceof Egg) {
+            throw new ModpackProviderException("The configured Beacon Egg '{$name}' is not installed.");
+        }
+
+        return $egg;
+    }
+
+    private function curseForgeImage(Egg $egg, int $java): string
+    {
+        if ($java < 1) {
+            throw new ModpackProviderException('The selected modpack has no trusted Java runtime.');
+        }
+        $suffixes = [":java_{$java}j9", ":java_{$java}"];
+        foreach (array_values($egg->docker_images ?? []) as $image) {
+            if (!is_string($image)) {
+                continue;
+            }
+            foreach ($suffixes as $suffix) {
+                if (str_ends_with($image, $suffix)) {
+                    return $image;
+                }
+            }
+        }
+
+        throw new ModpackProviderException("The CurseForge Generic Egg has no trusted Java {$java} image.");
     }
 
     private function runtimeEgg(string $loader): Egg

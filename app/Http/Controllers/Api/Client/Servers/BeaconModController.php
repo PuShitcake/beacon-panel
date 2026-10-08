@@ -55,6 +55,7 @@ class BeaconModController extends ClientApiController
             'loader' => $runtime['loader'] ?? null,
             'loader_version' => $runtime['loader_version'] ?? null,
             'game_version' => $runtime['game_version'] ?? null,
+            'categories' => config('beacon.mods.categories', []),
             'active_operation' => $active ? $this->operationData($active) : null,
             'automatic_power' => true,
             'backup_before_mutation' => (bool) config('beacon.content.backup_before_mutation'),
@@ -85,6 +86,7 @@ class BeaconModController extends ClientApiController
             $runtime['loader'],
             'mod',
             $request->integer('offset'),
+            $request->filled('category') ? $request->string('category')->toString() : null,
         ))]);
     }
 
@@ -211,8 +213,7 @@ class BeaconModController extends ClientApiController
                 ->where('server_id', $server->id)
                 ->where(function ($query) {
                     $query->where('type', 'like', 'mod.%')
-                        ->orWhere('type', 'like', 'modpack.%')
-                        ->orWhere('type', 'like', 'version.%');
+                        ->orWhere('type', 'like', 'modpack.%');
                 })
                 ->whereIn('status', [BeaconOperation::STATUS_PENDING, BeaconOperation::STATUS_RUNNING])
                 ->latest('id')
@@ -359,6 +360,13 @@ class BeaconModController extends ClientApiController
                 $capabilities = $this->capabilities->resolve($server);
 
                 throw new ConflictHttpException($capabilities['mod_unavailable_reason']);
+            }
+
+            return null;
+        }
+        if (strtolower((string) $runtime['loader']) !== 'forge') {
+            if ($required) {
+                throw new ConflictHttpException('The Mod Installer currently supports Forge servers only.');
             }
 
             return null;

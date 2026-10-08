@@ -34,6 +34,7 @@ RUN rm /usr/local/etc/php-fpm.conf \
 
 COPY .github/docker/default.conf /etc/nginx/http.d/default.conf
 COPY .github/docker/www.conf /usr/local/etc/php-fpm.conf
+COPY .github/docker/php.ini /usr/local/etc/php/conf.d/99-beacon-panel.ini
 COPY .github/docker/supervisord.conf /etc/supervisord.conf
 
 EXPOSE 80 443

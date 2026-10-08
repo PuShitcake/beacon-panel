@@ -24,7 +24,7 @@ class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
         $this->assertFalse($capabilities['mods']);
         $this->assertFalse($capabilities['modpacks']);
         $this->assertSame(
-            'This server is currently using Minecraft Vanilla. Switch to Forge, Fabric, NeoForge, or Quilt before installing mods.',
+            'This server is currently using Minecraft Vanilla. Switch to Forge before installing mods.',
             $capabilities['mod_unavailable_reason']
         );
     }
@@ -39,7 +39,7 @@ class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
         $this->assertFalse($capabilities['modpacks']);
     }
 
-    public function testModdedSoftwareEnablesModsAndMatchingModpacksWithoutPlugins(): void
+    public function testOnlyForgeEnablesIndividualModsAndModpacksRequireCurseForgeGeneric(): void
     {
         foreach ([
             'Forge Minecraft' => 'forge',
@@ -51,10 +51,26 @@ class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
 
             $this->assertSame($loader, $capabilities['software']);
             $this->assertFalse($capabilities['plugins']);
-            $this->assertTrue($capabilities['mods']);
-            $this->assertTrue($capabilities['modpacks']);
-            $this->assertSame([$loader], $capabilities['modpack_loaders']);
+            $this->assertSame($loader === 'forge', $capabilities['mods']);
+            $this->assertFalse($capabilities['modpacks']);
+            $this->assertSame([], $capabilities['modpack_loaders']);
         }
+    }
+
+    public function testCurseForgeGenericEnablesTheModpackPicker(): void
+    {
+        $capabilities = app(ServerSoftwareCapabilityService::class)->resolve($this->serverForEgg('CurseForge Generic'));
+
+        $this->assertSame('curseforge', $capabilities['software']);
+        $this->assertFalse($capabilities['plugins']);
+        $this->assertFalse($capabilities['mods']);
+        $this->assertTrue($capabilities['modpacks']);
+        $this->assertSame(['forge', 'fabric', 'neoforge', 'quilt'], $capabilities['modpack_loaders']);
+        $this->assertSame(['curseforge'], $capabilities['modpack_providers']);
+        $this->assertSame(
+            'This server is currently using Minecraft CurseForge. Install a Forge modpack before installing mods.',
+            $capabilities['mod_unavailable_reason']
+        );
     }
 
     public function testManagedModpackLoaderOverridesTheOriginalSoftware(): void
@@ -84,8 +100,9 @@ class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
 
         $this->assertSame('fabric', $capabilities['software']);
         $this->assertFalse($capabilities['plugins']);
-        $this->assertTrue($capabilities['mods']);
+        $this->assertFalse($capabilities['mods']);
         $this->assertTrue($capabilities['modpacks']);
+        $this->assertSame(['curseforge'], $capabilities['modpack_providers']);
     }
 
     private function serverForEgg(string $name): \Pterodactyl\Models\Server

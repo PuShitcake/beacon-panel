@@ -7,7 +7,7 @@ class BeaconModpackInstallRequest extends BeaconModpackRequest
     public function rules(): array
     {
         return [
-            'provider' => 'required|string|in:modrinth,curseforge,ftb,atlauncher,technic,voidswrath',
+            'provider' => 'required|string|in:curseforge',
             'project_id' => 'required|string|max:191',
             'version_id' => 'required|string|max:191',
             'delete_files' => 'sometimes|boolean',

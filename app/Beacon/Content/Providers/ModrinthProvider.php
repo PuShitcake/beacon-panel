@@ -12,11 +12,24 @@ class ModrinthProvider implements ContentProvider
 {
     private const MAX_RESPONSE_BYTES = 2097152;
 
-    public function search(string $query, string $gameVersion, string $loader, string $projectType, int $offset = 0): array
-    {
+    public function search(
+        string $query,
+        string $gameVersion,
+        string $loader,
+        string $projectType,
+        int $offset = 0,
+        ?string $category = null,
+    ): array {
         $query = trim($query);
         $typeFacet = $projectType === 'plugin' ? 'all_project_types:plugin' : "project_type:{$projectType}";
         $facets = [[$typeFacet], ["versions:{$gameVersion}"], ["categories:{$loader}"]];
+        if (!is_null($category)) {
+            $category = trim(strtolower($category));
+            if ($projectType !== 'mod' || !in_array($category, config('beacon.mods.categories', []), true)) {
+                throw new ProviderResponseException('The selected mod category is not supported.');
+            }
+            $facets[] = ["categories:{$category}"];
+        }
         $data = $this->get('/search', [
             'query' => $query,
             'facets' => json_encode($facets, JSON_THROW_ON_ERROR),

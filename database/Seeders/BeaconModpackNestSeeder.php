@@ -12,21 +12,18 @@ use Pterodactyl\Models\EggVariable;
 class BeaconModpackNestSeeder extends Seeder
 {
     private const INSTALLER_IMAGE = 'debian:bookworm-slim';
-    private const RUNTIME_EGGS = ['Vanilla Minecraft', 'Paper', 'Forge Minecraft'];
+    private const RUNTIME_EGGS = ['Vanilla Minecraft', 'Paper'];
 
     public function run(): void
     {
         DB::transaction(function () {
             $nestName = config('beacon.modpacks.nest.name');
             $nestAuthor = config('beacon.modpacks.nest.author');
-            $installerName = config('beacon.modpacks.nest.installer_egg');
-
             // Prefer the existing Beacon runtime nest. Older Beacon installs can
             // use a different author, and creating a second nest with the same
             // visible name makes the administrator UI ambiguous.
             $nest = Nest::query()
                 ->where('name', $nestName)
-                ->whereHas('eggs', fn ($query) => $query->where('name', '!=', $installerName))
                 ->orderBy('id')
                 ->first()
                 ?? Nest::query()->where('name', $nestName)->where('author', '!=', $nestAuthor)->orderBy('id')->first()
@@ -37,51 +34,10 @@ class BeaconModpackNestSeeder extends Seeder
                 $nest->forceFill([
                     'author' => $nestAuthor,
                     'name' => $nestName,
-                    'description' => 'Beacon Minecraft server and internal installation templates.',
+                    'description' => 'Beacon Minecraft server templates.',
                 ]);
                 $nest->save();
             }
-
-            $egg = Egg::query()
-                ->where('author', $nestAuthor)
-                ->where('name', $installerName)
-                ->first() ?? new Egg();
-            if (!$egg->exists) {
-                $egg->uuid = Uuid::uuid4()->toString();
-            }
-            $egg->forceFill([
-                'nest_id' => $nest->id,
-                'author' => $nestAuthor,
-                'name' => $installerName,
-                'description' => 'Internal transaction-safe installer used by Beacon Panel modpack operations.',
-                'features' => [],
-                'docker_images' => ['Installer' => self::INSTALLER_IMAGE],
-                'file_denylist' => [],
-                'config_files' => '{}',
-                'config_startup' => '{"done":"BEACON_INSTALL_COMPLETE"}',
-                'config_logs' => '{}',
-                'config_stop' => '^C',
-                'startup' => 'echo BEACON_INSTALLER_ONLY',
-                'script_is_privileged' => false,
-                'script_install' => $this->installScript(),
-                'script_entry' => 'bash',
-                'script_container' => self::INSTALLER_IMAGE,
-                'copy_script_from' => null,
-                'config_from' => null,
-                'force_outgoing_ip' => false,
-            ])->save();
-
-            EggVariable::query()->updateOrCreate([
-                'egg_id' => $egg->id,
-                'env_variable' => 'BEACON_MANIFEST_PATH',
-            ], [
-                'name' => 'Beacon Manifest Path',
-                'description' => 'Internal path written by Beacon Panel before the installer runs.',
-                'default_value' => '.beacon/modpack-install.json',
-                'user_viewable' => false,
-                'user_editable' => false,
-                'rules' => 'required|string|in:.beacon/modpack-install.json',
-            ]);
 
             $this->syncRuntimeEggs($nest);
 

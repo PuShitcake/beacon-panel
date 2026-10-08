@@ -31,15 +31,6 @@ class AuthenticateServerAccessTest extends TestCase
         $this->assertSame($request, $response);
     }
 
-    public function testOwnerCanPollVersionOperationWhileRuntimeIsInstalling(): void
-    {
-        [$request] = $this->requestForServer(Server::STATUS_INSTALLING, 'api:beacon.versions.operation');
-
-        $response = (new AuthenticateServerAccess())->handle($request, fn (Request $request) => $request);
-
-        $this->assertSame($request, $response);
-    }
-
     public function testNormalServerRouteRemainsBlockedWhileInstallerIsRunning(): void
     {
         [$request] = $this->requestForServer(Server::STATUS_INSTALLING, 'api:client:server.resources');

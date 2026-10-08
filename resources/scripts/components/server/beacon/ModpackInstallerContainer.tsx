@@ -283,7 +283,13 @@ const ModpackInstallerContainer = () => {
                           delete_files: deleteFiles,
                           confirmation: deleteFiles ? confirmation : null,
                       })
-                    : await updateModpack(server.uuid, context!.installation!.id, versionId);
+                    : await updateModpack(
+                          server.uuid,
+                          context!.installation!.id,
+                          provider,
+                          selectedProject.id,
+                          versionId
+                      );
             setModalVisible(false);
             await awaitOperation(operation);
             addFlash({ key: 'beacon-modpacks', type: 'success', message: 'Modpack operation completed.' });
@@ -345,15 +351,20 @@ const ModpackInstallerContainer = () => {
     const selectedProvider = context?.providers.find((item) => item.key === provider);
     const selectedVersionId =
         selectedVersion === LATEST_VERSION ? latestInstallableVersion(versions)?.id : selectedVersion;
+    const changingProject =
+        modalMode === 'update' &&
+        !!selectedProject &&
+        !!context?.installation &&
+        selectedProject.id !== context.installation.project_id;
+    const mutationLabel =
+        modalMode === 'install' ? 'Install modpack' : changingProject ? 'Change modpack' : 'Update modpack';
     const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
     return (
         <ServerContentBlock title={'Modpack Installer'}>
             <FlashMessageRender byKey={'beacon-modpacks'} css={tw`mb-4`} />
             <Modal visible={modalVisible} onDismissed={() => setModalVisible(false)} showSpinnerOverlay={working}>
-                <h2 css={tw`text-xl font-semibold text-neutral-100 mb-3`}>
-                    {modalMode === 'install' ? 'Install modpack' : 'Update modpack'}
-                </h2>
+                <h2 css={tw`text-xl font-semibold text-neutral-100 mb-3`}>{mutationLabel}</h2>
                 <p css={tw`text-sm text-neutral-300 mb-4`}>
                     Select a server-ready version of <strong>{selectedProject?.name}</strong>.
                 </p>
@@ -411,7 +422,7 @@ const ModpackInstallerContainer = () => {
                         onClick={submitInstall}
                         disabled={!selectedVersionId || (deleteFiles && confirmation !== server.name)}
                     >
-                        {modalMode === 'install' ? 'Install modpack' : 'Update modpack'}
+                        {mutationLabel}
                     </Button>
                 </div>
             </Modal>
@@ -472,11 +483,19 @@ const ModpackInstallerContainer = () => {
                 <ContentBox title={'Modpack Installer unavailable'}>
                     <p css={tw`text-sm text-neutral-300`}>
                         {context.unavailable_reason ||
-                            'Switch to Forge, Fabric, NeoForge, or Quilt before installing modpacks.'}
+                            'Modpacks require a server that uses the CurseForge Generic Egg.'}
                     </p>
                 </ContentBox>
             ) : (
                 <div css={tw`space-y-6`}>
+                    {context.awaiting_selection && (
+                        <ContentBox title={'Choose a modpack for this instance'}>
+                            <p css={tw`text-sm text-neutral-300`}>
+                                This CurseForge instance is ready. Choose a modpack and version below to run its first
+                                native installation.
+                            </p>
+                        </ContentBox>
+                    )}
                     {context.installation && (
                         <ContentBox title={'Most recently installed modpack'} showLoadingOverlay={working}>
                             <div css={tw`flex flex-col md:flex-row md:items-center justify-between gap-4`}>
@@ -617,8 +636,10 @@ const ModpackInstallerContainer = () => {
                                     <button
                                         type={'button'}
                                         key={project.id}
-                                        onClick={() => openInstall(project)}
-                                        disabled={!!context.installation || !!active}
+                                        onClick={() =>
+                                            openInstall(project, context.installation ? 'update' : 'install')
+                                        }
+                                        disabled={!!active}
                                         css={tw`flex text-left bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 rounded p-3 transition-colors`}
                                     >
                                         {project.icon_url && (

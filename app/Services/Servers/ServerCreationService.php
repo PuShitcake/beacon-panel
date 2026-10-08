@@ -73,6 +73,8 @@ class ServerCreationService
             $data['nest_id'] = Egg::query()->findOrFail($data['egg_id'])->nest_id;
         }
 
+        $data = $this->prepareCurseForgeSelection($data);
+
         $eggVariableData = $this->validatorService
             ->setUserLevel(User::USER_LEVEL_ADMIN)
             ->handle(Arr::get($data, 'egg_id'), Arr::get($data, 'environment', []));
@@ -103,7 +105,61 @@ class ServerCreationService
             throw $exception;
         }
 
+        if ($this->isPendingCurseForgeSelection($data)) {
+            // Wings has already accepted and persisted this server. There is no
+            // installer to wait for, so do not make Client API availability
+            // depend on the asynchronous skip-script callback reaching Panel.
+            // Leave installed_at untouched so a later native callback retains
+            // its normal first-install semantics.
+            $server->forceFill(['status' => null])->save();
+        }
+
         return $server;
+    }
+
+    /**
+     * A CurseForge Generic instance without a selected project must exist before
+     * its owner can use the Client Area picker. Keep the native creation flow,
+     * but skip only that first Egg installation and use a validator-safe marker
+     * until Beacon replaces it with trusted numeric IDs before reinstalling.
+     */
+    private function prepareCurseForgeSelection(array $data): array
+    {
+        $egg = Egg::query()->with('nest')->find($data['egg_id'] ?? 0);
+        if (!$egg instanceof Egg
+            || $egg->name !== config('beacon.modpacks.nest.curseforge_egg')
+            || $egg->nest?->name !== config('beacon.modpacks.nest.name')) {
+            return $data;
+        }
+
+        $environment = Arr::get($data, 'environment', []);
+        $environment = is_array($environment) ? $environment : [];
+        $projectId = trim((string) ($environment['PROJECT_ID'] ?? ''));
+        if ($projectId !== '') {
+            return $data;
+        }
+
+        $environment['PROJECT_ID'] = 'pending-selection';
+        $environment['VERSION'] = 'latest';
+        $data['environment'] = $environment;
+        $data['skip_scripts'] = true;
+        $data['start_on_completion'] = false;
+
+        return $data;
+    }
+
+    private function isPendingCurseForgeSelection(array $data): bool
+    {
+        if (($data['skip_scripts'] ?? false) !== true
+            || Arr::get($data, 'environment.PROJECT_ID') !== 'pending-selection') {
+            return false;
+        }
+
+        $egg = Egg::query()->with('nest')->find($data['egg_id'] ?? 0);
+
+        return $egg instanceof Egg
+            && $egg->name === config('beacon.modpacks.nest.curseforge_egg')
+            && $egg->nest?->name === config('beacon.modpacks.nest.name');
     }
 
     /**
