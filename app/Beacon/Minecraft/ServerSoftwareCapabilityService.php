@@ -9,6 +9,7 @@ use Pterodactyl\Models\BeaconModpackInstallation;
 class ServerSoftwareCapabilityService
 {
     private const MOD_LOADERS = ['forge', 'fabric', 'neoforge', 'quilt'];
+    private const CONFIGURATION_SOFTWARE = ['vanilla', 'paper', 'forge', 'fabric', 'neoforge', 'quilt', 'curseforge'];
 
     /**
      * Resolve the customer-facing Minecraft software and the installers it is allowed to use.
@@ -19,6 +20,7 @@ class ServerSoftwareCapabilityService
      *     plugins: bool,
      *     mods: bool,
      *     modpacks: bool,
+     *     configuration: bool,
      *     modpack_loaders: string[],
      *     modpack_providers: string[],
      *     plugin_unavailable_reason: string|null,
@@ -28,6 +30,11 @@ class ServerSoftwareCapabilityService
      */
     public function resolve(Server $server): array
     {
+        $server->loadMissing('egg.nest');
+        if ($server->egg?->nest?->name !== config('beacon.modpacks.nest.name', 'Beacon')) {
+            return $this->capabilities('unknown');
+        }
+
         $installation = BeaconModpackInstallation::query()
             ->where('server_id', $server->id)
             ->first();
@@ -46,11 +53,6 @@ class ServerSoftwareCapabilityService
             && $metadata->profile
             && $metadata->profile->egg_id === $server->egg_id) {
             return $this->capabilities(strtolower($metadata->profile->loader));
-        }
-
-        $server->loadMissing('egg.nest');
-        if ($server->egg?->nest?->name !== config('beacon.modpacks.nest.name', 'Beacon')) {
-            return $this->capabilities('unknown');
         }
 
         return $this->capabilities($this->softwareFromEgg($server->egg->name));
@@ -86,6 +88,7 @@ class ServerSoftwareCapabilityService
         $plugins = $software === 'paper';
         $mods = $software === 'forge';
         $modpacks = $managedModpack || $software === 'curseforge';
+        $configuration = in_array($software, self::CONFIGURATION_SOFTWARE, true);
         $modpackLoaders = $modpacks ? self::MOD_LOADERS : [];
         $modpackProviders = $modpacks ? ['curseforge'] : [];
 
@@ -100,6 +103,7 @@ class ServerSoftwareCapabilityService
             'plugins' => $plugins,
             'mods' => $mods,
             'modpacks' => $modpacks,
+            'configuration' => $configuration,
             'modpack_loaders' => $modpackLoaders,
             'modpack_providers' => $modpackProviders,
             'plugin_unavailable_reason' => $plugins

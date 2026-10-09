@@ -76,6 +76,7 @@ class ServerTransformer extends BaseClientTransformer
                 'plugins' => $capabilities['plugins'],
                 'mods' => $capabilities['mods'],
                 'modpacks' => $capabilities['modpacks'],
+                'configuration' => $capabilities['configuration'],
             ],
             'feature_limits' => [
                 'databases' => $server->database_limit,

@@ -38,7 +38,7 @@ interface RouteDefinition {
 interface ServerRouteDefinition extends RouteDefinition {
     permission: string | string[] | null;
     ownerOnly?: boolean;
-    beaconCapability?: 'plugins' | 'mods' | 'modpacks';
+    beaconCapability?: 'plugins' | 'mods' | 'modpacks' | 'configuration';
 }
 
 interface Routes {
@@ -110,6 +110,7 @@ export default {
         {
             path: '/configuration',
             permission: ['file.read-content', 'file.update'],
+            beaconCapability: 'configuration',
             name: 'Configuration',
             component: ConfigurationContainer,
         },

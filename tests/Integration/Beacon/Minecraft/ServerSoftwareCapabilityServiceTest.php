@@ -8,6 +8,8 @@ use Pterodactyl\Models\BeaconModpackInstallation;
 use Pterodactyl\Tests\Integration\IntegrationTestCase;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Pterodactyl\Beacon\Minecraft\ServerSoftwareCapabilityService;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Pterodactyl\Http\Controllers\Api\Client\Servers\BeaconConfigurationController;
 
 class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
 {
@@ -23,6 +25,7 @@ class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
         $this->assertFalse($capabilities['plugins']);
         $this->assertFalse($capabilities['mods']);
         $this->assertFalse($capabilities['modpacks']);
+        $this->assertTrue($capabilities['configuration']);
         $this->assertSame(
             'This server is currently using Minecraft Vanilla. Switch to Forge before installing mods.',
             $capabilities['mod_unavailable_reason']
@@ -37,6 +40,7 @@ class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
         $this->assertTrue($capabilities['plugins']);
         $this->assertFalse($capabilities['mods']);
         $this->assertFalse($capabilities['modpacks']);
+        $this->assertTrue($capabilities['configuration']);
     }
 
     public function testOnlyForgeEnablesIndividualModsAndModpacksRequireCurseForgeGeneric(): void
@@ -53,6 +57,7 @@ class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
             $this->assertFalse($capabilities['plugins']);
             $this->assertSame($loader === 'forge', $capabilities['mods']);
             $this->assertFalse($capabilities['modpacks']);
+            $this->assertTrue($capabilities['configuration']);
             $this->assertSame([], $capabilities['modpack_loaders']);
         }
     }
@@ -65,6 +70,7 @@ class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
         $this->assertFalse($capabilities['plugins']);
         $this->assertFalse($capabilities['mods']);
         $this->assertTrue($capabilities['modpacks']);
+        $this->assertTrue($capabilities['configuration']);
         $this->assertSame(['forge', 'fabric', 'neoforge', 'quilt'], $capabilities['modpack_loaders']);
         $this->assertSame(['curseforge'], $capabilities['modpack_providers']);
         $this->assertSame(
@@ -102,7 +108,33 @@ class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
         $this->assertFalse($capabilities['plugins']);
         $this->assertFalse($capabilities['mods']);
         $this->assertTrue($capabilities['modpacks']);
+        $this->assertTrue($capabilities['configuration']);
         $this->assertSame(['curseforge'], $capabilities['modpack_providers']);
+    }
+
+    public function testConfigurationIsUnavailableOutsideTheBeaconNest(): void
+    {
+        $nest = Nest::factory()->create(['name' => 'Minecraft']);
+        $egg = Egg::factory()->create(['nest_id' => $nest->id, 'name' => 'Paper']);
+        $server = $this->createServerModel(['egg_id' => $egg->id]);
+
+        $capabilities = app(ServerSoftwareCapabilityService::class)->resolve($server);
+
+        $this->assertSame('unknown', $capabilities['software']);
+        $this->assertFalse($capabilities['configuration']);
+    }
+
+    public function testConfigurationExplainsThatCurseForgeNeedsAnInstalledModpack(): void
+    {
+        $server = $this->serverForEgg('CurseForge Generic');
+        $controller = app(BeaconConfigurationController::class);
+        $method = new \ReflectionMethod($controller, 'ensureMinecraftServer');
+        $method->setAccessible(true);
+
+        $this->expectException(ConflictHttpException::class);
+        $this->expectExceptionMessage('Install a modpack before using Minecraft Configuration.');
+
+        $method->invoke($controller, $server);
     }
 
     private function serverForEgg(string $name): \Pterodactyl\Models\Server

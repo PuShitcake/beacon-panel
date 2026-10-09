@@ -11,24 +11,41 @@ import Label from '@/components/elements/Label';
 import Button from '@/components/elements/Button';
 import Spinner from '@/components/elements/Spinner';
 import Can from '@/components/elements/Can';
+import { httpErrorToHuman } from '@/api/http';
 import {
     getMinecraftConfiguration,
     MinecraftConfiguration,
     updateMinecraftConfiguration,
 } from '@/api/server/beacon/configuration';
 
+const MODPACK_REQUIRED_MESSAGE = 'Install a modpack before using Minecraft Configuration.';
+
 const ConfigurationContainer = () => {
     const server = ServerContext.useStoreState((state) => state.server.data!.uuid);
     const { clearFlashes, clearAndAddHttpError, addFlash } = useFlash();
     const [configuration, setConfiguration] = useState<MinecraftConfiguration>();
+    const [unavailableReason, setUnavailableReason] = useState<string>();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
+    const handleConfigurationError = (error: unknown) => {
+        const message = httpErrorToHuman(error);
+        if (message === MODPACK_REQUIRED_MESSAGE) {
+            setConfiguration(undefined);
+            setUnavailableReason(message);
+            clearFlashes('beacon-configuration');
+        } else {
+            clearAndAddHttpError({ key: 'beacon-configuration', error });
+        }
+    };
+
     useEffect(() => {
         clearFlashes('beacon-configuration');
+        setConfiguration(undefined);
+        setUnavailableReason(undefined);
         getMinecraftConfiguration(server)
             .then(setConfiguration)
-            .catch((error) => clearAndAddHttpError({ key: 'beacon-configuration', error }))
+            .catch(handleConfigurationError)
             .finally(() => setLoading(false));
     }, [server]);
 
@@ -46,7 +63,7 @@ const ConfigurationContainer = () => {
             setConfiguration(await updateMinecraftConfiguration(server, configuration));
             addFlash({ key: 'beacon-configuration', type: 'success', message: 'Configuration saved.' });
         } catch (error) {
-            clearAndAddHttpError({ key: 'beacon-configuration', error });
+            handleConfigurationError(error);
         } finally {
             setSaving(false);
         }
@@ -57,7 +74,11 @@ const ConfigurationContainer = () => {
     return (
         <ServerContentBlock title={'Minecraft Configuration'}>
             <FlashMessageRender byKey={'beacon-configuration'} css={tw`mb-4`} />
-            {configuration && (
+            {unavailableReason ? (
+                <ContentBox title={'Minecraft Configuration unavailable'}>
+                    <p css={tw`text-sm text-neutral-300`}>{unavailableReason}</p>
+                </ContentBox>
+            ) : configuration ? (
                 <ContentBox title={'server.properties'} showLoadingOverlay={saving}>
                     <p css={tw`text-xs text-yellow-200 mb-5`}>
                         Only Beacon-approved settings are shown. Stop the server before saving changes.
@@ -115,7 +136,7 @@ const ConfigurationContainer = () => {
                         </div>
                     </Can>
                 </ContentBox>
-            )}
+            ) : null}
         </ServerContentBlock>
     );
 };

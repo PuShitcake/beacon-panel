@@ -59,6 +59,7 @@ export interface Server {
         plugins: boolean;
         mods: boolean;
         modpacks: boolean;
+        configuration: boolean;
     };
     featureLimits: {
         databases: number;
@@ -97,6 +98,7 @@ export const rawDataToServerObject = ({ attributes: data }: FractalResponseData)
         plugins: data.beacon_capabilities?.plugins || false,
         mods: data.beacon_capabilities?.mods || false,
         modpacks: data.beacon_capabilities?.modpacks || false,
+        configuration: data.beacon_capabilities?.configuration || false,
     },
     featureLimits: { ...data.feature_limits },
     isTransferring: data.is_transferring,

@@ -6,10 +6,11 @@ use Pterodactyl\Models\Server;
 use Illuminate\Http\JsonResponse;
 use Pterodactyl\Facades\Activity;
 use Pterodactyl\Models\BeaconOperation;
-use Pterodactyl\Models\BeaconServerMetadata;
+use Pterodactyl\Models\BeaconModpackInstallation;
 use Pterodactyl\Beacon\Minecraft\ServerPropertiesService;
 use Pterodactyl\Repositories\Wings\DaemonServerRepository;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
+use Pterodactyl\Beacon\Minecraft\ServerSoftwareCapabilityService;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Pterodactyl\Http\Requests\Api\Client\Servers\BeaconConfigurationReadRequest;
 use Pterodactyl\Http\Requests\Api\Client\Servers\BeaconConfigurationWriteRequest;
@@ -19,6 +20,7 @@ class BeaconConfigurationController extends ClientApiController
     public function __construct(
         private ServerPropertiesService $properties,
         private DaemonServerRepository $serverRepository,
+        private ServerSoftwareCapabilityService $capabilities,
     ) {
         parent::__construct();
     }
@@ -66,12 +68,18 @@ class BeaconConfigurationController extends ClientApiController
 
     private function ensureMinecraftServer(Server $server): void
     {
-        $exists = BeaconServerMetadata::query()
-            ->where('server_id', $server->id)
-            ->whereHas('application', fn ($query) => $query->where('slug', 'minecraft-java'))
-            ->exists();
-        if (!$exists) {
-            throw new ConflictHttpException('Managed Minecraft configuration is not enabled for this server.');
+        $capabilities = $this->capabilities->resolve($server);
+        if (!$capabilities['configuration']) {
+            throw new ConflictHttpException('Managed Minecraft configuration is only available for supported Beacon Minecraft servers.');
+        }
+
+        if ($capabilities['software'] === 'curseforge'
+            && !BeaconModpackInstallation::query()
+                ->where('server_id', $server->id)
+                ->where('status', 'installed')
+                ->whereNotNull('installed_at')
+                ->exists()) {
+            throw new ConflictHttpException('Install a modpack before using Minecraft Configuration.');
         }
     }
 }
