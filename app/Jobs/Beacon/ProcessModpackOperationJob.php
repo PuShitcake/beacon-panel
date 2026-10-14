@@ -14,12 +14,15 @@ use Pterodactyl\Models\BeaconModpackInstallation;
 use Pterodactyl\Services\Backups\DeleteBackupService;
 use Pterodactyl\Services\Backups\DownloadLinkService;
 use Pterodactyl\Beacon\Modpacks\ModpackRuntimeService;
+use Pterodactyl\Beacon\Operations\PublicOperationError;
+use Pterodactyl\Beacon\Modpacks\ModpackJvmMemoryService;
 use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Pterodactyl\Services\Servers\ReinstallServerService;
 use Pterodactyl\Repositories\Wings\DaemonPowerRepository;
 use Pterodactyl\Repositories\Wings\DaemonBackupRepository;
 use Pterodactyl\Repositories\Wings\DaemonServerRepository;
 use Pterodactyl\Beacon\Modpacks\PrepareModpackOperationService;
+use Pterodactyl\Beacon\Modpacks\CurseForgeInstalledRuntimeService;
 use Pterodactyl\Beacon\Modpacks\ManagedModpackBackupCleanupService;
 use Pterodactyl\Beacon\Content\ReconcileManagedModsForModpackService;
 
@@ -48,6 +51,8 @@ class ProcessModpackOperationJob implements ShouldQueue
         DeleteBackupService $deleteBackup,
         ManagedModpackBackupCleanupService $managedBackups,
         ReconcileManagedModsForModpackService $managedMods,
+        ModpackJvmMemoryService $jvmMemory,
+        CurseForgeInstalledRuntimeService $installedRuntime,
     ): void {
         $operation = BeaconOperation::query()->findOrFail($this->operationId);
         if (in_array($operation->status, [BeaconOperation::STATUS_SUCCEEDED, BeaconOperation::STATUS_FAILED], true)) {
@@ -108,6 +113,9 @@ class ProcessModpackOperationJob implements ShouldQueue
                     $files,
                     $deleteBackup,
                     $managedMods,
+                    $jvmMemory,
+                    $servers,
+                    $installedRuntime,
                 );
 
                 return;
@@ -234,10 +242,11 @@ class ProcessModpackOperationJob implements ShouldQueue
                     );
                     $operation->forceFill(['payload' => $payload])->save();
                 }
+                $jvmMemory->apply($server->fresh(), $files, $servers);
                 $this->finalizeInstallation($operation, $server, $payload, $deleteBackup);
             }
         } catch (\Throwable $exception) {
-            report($exception);
+            PublicOperationError::report($exception, 'modpack.operation', $this->operationId);
             if ($phase === 'recover_worker_failure') {
                 $this->failOperation(
                     $operation,
@@ -255,7 +264,7 @@ class ProcessModpackOperationJob implements ShouldQueue
 
                     return;
                 } catch (\Throwable $rollbackException) {
-                    report($rollbackException);
+                    PublicOperationError::report($rollbackException, 'modpack.rollback', $this->operationId);
                     $this->failOperation($operation, 'modpack_rollback_failed', 'Installation failed and automatic rollback could not be started. Manual recovery is required.', [
                         'rollback' => ['status' => 'failed'],
                     ]);
@@ -280,6 +289,9 @@ class ProcessModpackOperationJob implements ShouldQueue
         DaemonFileRepository $files,
         DeleteBackupService $deleteBackup,
         ReconcileManagedModsForModpackService $managedMods,
+        ModpackJvmMemoryService $jvmMemory,
+        DaemonServerRepository $servers,
+        CurseForgeInstalledRuntimeService $installedRuntime,
     ): void {
         if ($phase === 'prepare') {
             $runtime->validateCurseForgeTarget($payload['release']);
@@ -319,6 +331,8 @@ class ProcessModpackOperationJob implements ShouldQueue
                 $operation->forceFill(['payload' => $payload])->save();
             }
             $payload['preserved_paths'] = $this->cleanFilesIfRequested($repository, $payload, $operation->uuid);
+            $installedRuntime->prepare($repository);
+            $payload['runtime_verified'] = false;
             $payload['phase'] = 'wait_curseforge';
             $payload['progress'] = [
                 'stage' => 'installing',
@@ -353,6 +367,12 @@ class ProcessModpackOperationJob implements ShouldQueue
         }
 
         if ($phase === 'finalize_curseforge') {
+            if (($payload['runtime_verified'] ?? false) !== true) {
+                $payload['release'] = $installedRuntime->resolve($server->fresh(), $files, $servers, $payload['release']);
+                $server = $runtime->switchToCurseForge($server->fresh(), $payload['release']);
+                $payload['runtime_verified'] = true;
+                $operation->forceFill(['payload' => $payload])->save();
+            }
             if (!array_key_exists('managed_mod_reconciliation', $payload)) {
                 $payload['managed_mod_reconciliation'] = $managedMods->restore(
                     $files->setServer($server),
@@ -362,6 +382,7 @@ class ProcessModpackOperationJob implements ShouldQueue
                 );
                 $operation->forceFill(['payload' => $payload])->save();
             }
+            $jvmMemory->apply($server->fresh(), $files, $servers);
             $this->finalizeInstallation($operation, $server, $payload, $deleteBackup);
         }
     }
@@ -456,7 +477,7 @@ class ProcessModpackOperationJob implements ShouldQueue
             try {
                 $managedBackups->deleteIfStale($server, $backupUuid);
             } catch (\Throwable $exception) {
-                report($exception);
+                PublicOperationError::report($exception, 'modpack.cleanup', $this->operationId);
             }
 
             if ($restart) {
@@ -684,7 +705,7 @@ class ProcessModpackOperationJob implements ShouldQueue
                 try {
                     $deleteBackup->handle($temporary);
                 } catch (\Throwable $exception) {
-                    report($exception);
+                    PublicOperationError::report($exception, 'modpack.backup_cleanup', $this->operationId);
                 }
             }
         }
@@ -807,9 +828,7 @@ class ProcessModpackOperationJob implements ShouldQueue
 
     private function safeError(\Throwable $exception): string
     {
-        return $exception instanceof \InvalidArgumentException || $exception instanceof \RuntimeException
-            ? $exception->getMessage()
-            : 'The modpack operation failed. Review the protected application logs.';
+        return PublicOperationError::message($exception, 'The modpack operation failed. Review the protected application logs.');
     }
 
     private function log(BeaconOperation $operation, Server $server, string $action): void

@@ -10,6 +10,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Pterodactyl\Models\BeaconContentInstallation;
 use Pterodactyl\Beacon\Content\ContentPowerService;
+use Pterodactyl\Beacon\Operations\PublicOperationError;
 use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Pterodactyl\Beacon\Content\PrepareContentMutationService;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -88,7 +89,7 @@ class ProcessModOperationJob implements ShouldQueue
 
             $this->complete($operation, $server, $result, false);
         } catch (\Throwable $exception) {
-            report($exception);
+            PublicOperationError::report($exception, 'mod.operation', $this->operationId);
             $operation->refresh()->forceFill([
                 'status' => BeaconOperation::STATUS_FAILED,
                 'error_code' => 'mod_operation_failed',
@@ -208,7 +209,7 @@ class ProcessModOperationJob implements ShouldQueue
                 }
                 $files->deleteFiles('/.beacon', array_filter([$stageName, $replace->isNotEmpty() ? $rollbackName : null]));
             } catch (\Throwable $rollbackException) {
-                report($rollbackException);
+                PublicOperationError::report($rollbackException, 'mod.rollback', $this->operationId);
                 $rollbackFailed = true;
             }
             if ($rollbackFailed) {
@@ -221,7 +222,7 @@ class ProcessModOperationJob implements ShouldQueue
         try {
             $files->deleteFiles('/.beacon', array_filter([$stageName, $replace->isNotEmpty() ? $rollbackName : null]));
         } catch (\Throwable $exception) {
-            report($exception);
+            PublicOperationError::report($exception, 'mod.file_change', $this->operationId);
         }
 
         $root = collect($plan)->first(fn (array $item) => ($item['dependency'] ?? true) === false);
@@ -275,7 +276,7 @@ class ProcessModOperationJob implements ShouldQueue
                         'to' => $this->managedPath($item),
                     ])->all());
                 } catch (\Throwable $rollbackException) {
-                    report($rollbackException);
+                    PublicOperationError::report($rollbackException, 'mod.uninstall_rollback', $this->operationId);
                     throw new \RuntimeException('Mod uninstall failed and its file rollback also failed. Manual file review is required.', 0, $exception);
                 }
             }
@@ -286,7 +287,7 @@ class ProcessModOperationJob implements ShouldQueue
         try {
             $files->deleteFiles('/.beacon', [$rollbackName]);
         } catch (\Throwable $exception) {
-            report($exception);
+            PublicOperationError::report($exception, 'mod.uninstall', $this->operationId);
         }
 
         return [
@@ -363,11 +364,7 @@ class ProcessModOperationJob implements ShouldQueue
 
     private function safeError(\Throwable $exception): string
     {
-        return $exception instanceof ConflictHttpException
-            || $exception instanceof \InvalidArgumentException
-            || $exception instanceof \RuntimeException
-                ? $exception->getMessage()
-                : 'The mod operation failed. Review the protected application logs.';
+        return PublicOperationError::message($exception, 'The mod operation failed. Review the protected application logs.');
     }
 
     public function failed(?\Throwable $exception = null): void

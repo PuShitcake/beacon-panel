@@ -139,7 +139,7 @@ class BeaconModpackController extends ClientApiController
             $this->assertReleaseCompatible($capabilities, $payload['release']);
         }
 
-        unset($payload['mutation_started'], $payload['failure_message'], $payload['progress']);
+        unset($payload['mutation_started'], $payload['failure_message'], $payload['progress'], $payload['runtime_verified']);
         $payload['phase'] = in_array($action, ['restore', 'uninstall'], true) ? 'prepare_restore' : 'prepare';
 
         return $this->start($request, $server, $action, $payload);
@@ -384,9 +384,12 @@ class BeaconModpackController extends ClientApiController
 
     private function installationData(BeaconModpackInstallation $installation): array
     {
-        return $installation->only([
+        return array_merge($installation->only([
             'id', 'provider', 'project_id', 'project_slug', 'name', 'icon_url', 'version_id', 'version_name',
             'minecraft_version', 'loader', 'loader_version', 'status', 'installed_at',
+        ]), [
+            'java_version' => data_get($installation->manifest, 'java_version'),
+            'runtime_verified' => data_get($installation->manifest, 'runtime_source') === 'curseforge_client_manifest',
         ]);
     }
 

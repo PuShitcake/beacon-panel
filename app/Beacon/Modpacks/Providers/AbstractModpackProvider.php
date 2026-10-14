@@ -5,6 +5,7 @@ namespace Pterodactyl\Beacon\Modpacks\Providers;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Client\PendingRequest;
+use Pterodactyl\Beacon\Modpacks\ModpackMinecraftVersionPolicy;
 use Pterodactyl\Beacon\Modpacks\Exceptions\ModpackProviderException;
 
 abstract class AbstractModpackProvider implements ModpackProvider
@@ -160,7 +161,7 @@ abstract class AbstractModpackProvider implements ModpackProvider
     protected function minecraftVersionFrom(array $values): ?string
     {
         foreach ($values as $value) {
-            if (is_string($value) && preg_match('/^1\.\d+(?:\.\d+)?$/', $value)) {
+            if (is_string($value) && (new ModpackMinecraftVersionPolicy())->supports($value)) {
                 return $value;
             }
         }
@@ -170,20 +171,7 @@ abstract class AbstractModpackProvider implements ModpackProvider
 
     protected function javaVersion(string $minecraftVersion): int
     {
-        $parts = array_map('intval', explode('.', $minecraftVersion));
-        $minor = $parts[1] ?? 0;
-        $patch = $parts[2] ?? 0;
-        if ($minor > 20 || ($minor === 20 && $patch >= 5)) {
-            return 21;
-        }
-        if ($minor >= 18) {
-            return 17;
-        }
-        if ($minor === 17) {
-            return 16;
-        }
-
-        return 8;
+        return (new ModpackMinecraftVersionPolicy())->javaVersion($minecraftVersion);
     }
 
     protected function page(array $items, int $page, int $pageSize): array

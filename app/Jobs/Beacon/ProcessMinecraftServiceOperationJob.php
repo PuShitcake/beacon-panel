@@ -10,6 +10,7 @@ use Pterodactyl\Models\BeaconOperation;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Pterodactyl\Models\BeaconMinecraftService;
+use Pterodactyl\Beacon\Operations\PublicOperationError;
 use Pterodactyl\Repositories\Wings\DaemonServerRepository;
 use Pterodactyl\Beacon\Minecraft\MinecraftServicePowerService;
 use Pterodactyl\Beacon\Minecraft\MinecraftServiceConfiguration;
@@ -329,21 +330,12 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
 
     private function safeError(\Throwable $exception): string
     {
-        return $exception instanceof \InvalidArgumentException
-            || $exception instanceof \RuntimeException
-            || $exception instanceof \Pterodactyl\Exceptions\DisplayException
-                ? $exception->getMessage()
-                : 'The Minecraft service operation failed. Review the protected application logs.';
+        return PublicOperationError::message($exception, 'The Minecraft service operation failed. Review the protected application logs.');
     }
 
     private function reportSanitized(\Throwable $exception, string $stage): void
     {
-        report(new \RuntimeException(sprintf(
-            'Minecraft service %s failed with %s (code %d).',
-            $stage,
-            $exception::class,
-            (int) $exception->getCode(),
-        )));
+        PublicOperationError::report($exception, 'minecraft_service.' . $stage, $this->operationId);
     }
 
     public function failed(?\Throwable $exception = null): void

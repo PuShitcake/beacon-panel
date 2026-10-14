@@ -515,6 +515,13 @@ const ModpackInstallerContainer = () => {
                                         <p css={tw`text-xs text-neutral-400`}>
                                             {context.installation.version_name} • Minecraft{' '}
                                             {context.installation.minecraft_version} • {context.installation.loader}
+                                            {context.installation.java_version && (
+                                                <>
+                                                    {' • Java '}
+                                                    {context.installation.java_version}
+                                                    {context.installation.runtime_verified && ' (verified)'}
+                                                </>
+                                            )}
                                         </p>
                                     </div>
                                 </div>
@@ -576,6 +583,11 @@ const ModpackInstallerContainer = () => {
                     )}
 
                     <ContentBox title={'Browse modpacks'} showLoadingOverlay={working}>
+                        <p css={tw`text-sm text-neutral-300 mb-4`}>
+                            The Java image is selected automatically and verified against the installed modpack. JVM
+                            memory settings are adjusted to this instance&apos;s RAM. You can install a modpack below
+                            its recommended RAM, but it may fail to start or run out of memory.
+                        </p>
                         <div css={tw`grid grid-cols-1 md:grid-cols-6 gap-3 mb-4`}>
                             <div css={tw`md:col-span-2`}>
                                 <label css={tw`block text-xs uppercase text-neutral-400 mb-1`}>Provider</label>

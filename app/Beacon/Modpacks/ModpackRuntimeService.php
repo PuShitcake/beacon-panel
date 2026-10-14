@@ -88,7 +88,7 @@ class ModpackRuntimeService
             $server,
             $egg,
             $this->curseForgeImage($egg, (int) $release['java_version']),
-            $egg->startup,
+            (new ModpackJvmMemoryService())->startup((string) $egg->startup, $server->memory),
             [
                 'PROJECT_ID' => $release['project_id'],
                 'VERSION' => $release['version_id'],
@@ -183,19 +183,13 @@ class ModpackRuntimeService
         if ($java < 1) {
             throw new ModpackProviderException('The selected modpack has no trusted Java runtime.');
         }
-        $suffixes = [":java_{$java}j9", ":java_{$java}"];
         foreach (array_values($egg->docker_images ?? []) as $image) {
-            if (!is_string($image)) {
-                continue;
-            }
-            foreach ($suffixes as $suffix) {
-                if (str_ends_with($image, $suffix)) {
-                    return $image;
-                }
+            if (is_string($image) && str_ends_with($image, ":java_{$java}")) {
+                return $image;
             }
         }
 
-        throw new ModpackProviderException("The CurseForge Generic Egg has no trusted Java {$java} image.");
+        throw new ModpackProviderException("The CurseForge Generic Egg has no trusted Java {$java} HotSpot image.");
     }
 
     private function runtimeEgg(string $loader): Egg

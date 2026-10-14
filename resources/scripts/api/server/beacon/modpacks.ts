@@ -43,6 +43,8 @@ export interface ModpackInstallation {
     minecraft_version: string;
     loader: string;
     loader_version: string | null;
+    java_version?: number | null;
+    runtime_verified?: boolean;
     status: string;
     installed_at: string;
 }
