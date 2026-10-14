@@ -13,6 +13,9 @@ node_modules
 vendor
 tests
 docs
+# Runtime files and restore points are not application build inputs.
+storage/app/**
+!storage/app/**/.gitignore
 storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*
