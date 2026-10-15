@@ -66,7 +66,7 @@ class ModpackRuntimeService
                 throw new ModpackProviderException("The CurseForge Generic Egg is missing the {$required} variable.");
             }
         }
-        $this->curseForgeImage($egg, (int) ($release['java_version'] ?? 0));
+        $this->curseForgeImage((int) ($release['java_version'] ?? 0));
     }
 
     public function isCurseForgeServer(Server $server): bool
@@ -87,7 +87,7 @@ class ModpackRuntimeService
         return $this->switch(
             $server,
             $egg,
-            $this->curseForgeImage($egg, (int) $release['java_version']),
+            $this->curseForgeImage((int) $release['java_version']),
             (new ModpackJvmMemoryService())->startup((string) $egg->startup, $server->memory),
             [
                 'PROJECT_ID' => $release['project_id'],
@@ -178,18 +178,19 @@ class ModpackRuntimeService
         return $egg;
     }
 
-    private function curseForgeImage(Egg $egg, int $java): string
+    private function curseForgeImage(int $java): string
     {
         if ($java < 1) {
             throw new ModpackProviderException('The selected modpack has no trusted Java runtime.');
         }
-        foreach (array_values($egg->docker_images ?? []) as $image) {
-            if (is_string($image) && str_ends_with($image, ":java_{$java}")) {
-                return $image;
-            }
+        // Automatic images are administrator-controlled runtime policy, not Egg dropdown options.
+        // Never accept an image from a client request or the downloaded modpack manifest.
+        $image = config("beacon.modpacks.java_images.{$java}");
+        if (is_string($image) && str_ends_with($image, ":java_{$java}")) {
+            return $image;
         }
 
-        throw new ModpackProviderException("The CurseForge Generic Egg has no trusted Java {$java} HotSpot image.");
+        throw new ModpackProviderException("No trusted Java {$java} HotSpot image is configured for this modpack.");
     }
 
     private function runtimeEgg(string $loader): Egg

@@ -20,7 +20,7 @@ class CurseForgeGenericRuntimeServiceTest extends IntegrationTestCase
             'nest_id' => $nest->id,
             'name' => 'CurseForge Generic',
             'docker_images' => [
-                'Java 17' => 'ghcr.io/pterodactyl/yolks:java_17',
+                'Java 17 OpenJ9' => 'ghcr.io/pterodactyl/yolks:java_17j9',
             ],
         ]);
         foreach (['PROJECT_ID', 'VERSION'] as $variable) {
