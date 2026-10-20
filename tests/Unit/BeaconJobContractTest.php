@@ -7,6 +7,7 @@ use Pterodactyl\Jobs\Beacon\RemoveContentJob;
 use Pterodactyl\Jobs\Beacon\InstallContentJob;
 use Pterodactyl\Jobs\Beacon\CreateCatalogServerJob;
 use Pterodactyl\Jobs\Beacon\ProcessModpackOperationJob;
+use Pterodactyl\Jobs\Beacon\FinalizeNativeCurseForgeInstallationJob;
 
 class BeaconJobContractTest extends TestCase
 {
@@ -17,6 +18,7 @@ class BeaconJobContractTest extends TestCase
             InstallContentJob::class,
             RemoveContentJob::class,
             ProcessModpackOperationJob::class,
+            FinalizeNativeCurseForgeInstallationJob::class,
         ] as $jobClass) {
             $job = new $jobClass(1);
 

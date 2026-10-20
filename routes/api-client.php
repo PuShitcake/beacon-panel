@@ -98,19 +98,10 @@ Route::group([
         Route::middleware('throttle:api.beacon.content')->group(function () {
             Route::get('/context', [Client\Servers\BeaconModpackController::class, 'context'])
                 ->name('api:beacon.modpacks.context');
-            Route::get('/search', [Client\Servers\BeaconModpackController::class, 'search']);
-            Route::get('/providers/{provider}/projects/{projectId}/versions', [Client\Servers\BeaconModpackController::class, 'versions']);
             Route::get('/history', [Client\Servers\BeaconModpackController::class, 'history'])
                 ->name('api:beacon.modpacks.history');
 
-            Route::middleware(RequireBeaconRequestMetadata::class)->group(function () {
-                Route::post('/install', [Client\Servers\BeaconModpackController::class, 'install']);
-                Route::post('/operations/{operationUuid}/retry', [Client\Servers\BeaconModpackController::class, 'retry']);
-                Route::post('/installations/{installationId}/update', [Client\Servers\BeaconModpackController::class, 'update']);
-                Route::post('/installations/{installationId}/reinstall', [Client\Servers\BeaconModpackController::class, 'reinstall']);
-                Route::post('/installations/{installationId}/restore', [Client\Servers\BeaconModpackController::class, 'restore']);
-                Route::delete('/installations/{installationId}', [Client\Servers\BeaconModpackController::class, 'uninstall']);
-            });
+            // Retired picker: keep read-only history/polling for previously dispatched operations.
         });
 
         Route::get('/operations/{operationUuid}', [Client\Servers\BeaconModpackController::class, 'operation'])

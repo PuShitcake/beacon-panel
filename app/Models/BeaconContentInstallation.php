@@ -19,7 +19,7 @@ class BeaconContentInstallation extends Model
     public static array $validationRules = [
         'server_id' => 'required|integer|exists:servers,id',
         'operation_id' => 'nullable|integer|exists:beacon_operations,id',
-        'provider' => 'required|string|in:modrinth',
+        'provider' => 'required|string|in:modrinth,curseforge',
         'project_id' => 'required|string|max:64',
         'project_name' => 'nullable|string|max:191',
         'version_id' => 'required|string|max:64',

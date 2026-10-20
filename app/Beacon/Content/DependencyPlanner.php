@@ -12,21 +12,23 @@ class DependencyPlanner
     private array $optional = [];
     private array $incompatible = [];
     private int $totalBytes = 0;
+    private ContentProvider $activeProvider;
 
     public function __construct(private ContentProvider $provider)
     {
     }
 
-    public function handle(string $versionId, string $gameVersion, string $loader, string $projectType): array
+    public function handle(string $versionId, string $gameVersion, string $loader, string $projectType, string $providerKey = 'modrinth', ?ContentProvider $provider = null): array
     {
         $this->planned = [];
         $this->optional = [];
         $this->incompatible = [];
         $this->totalBytes = 0;
+        $this->activeProvider = $provider ?? $this->provider;
         $this->visit($versionId, $gameVersion, $loader, $projectType, 0);
 
         return [
-            'provider' => 'modrinth',
+            'provider' => $providerKey,
             'project_type' => $projectType,
             'loader' => $loader,
             'game_version' => $gameVersion,
@@ -49,7 +51,7 @@ class DependencyPlanner
             throw new ConflictHttpException('The dependency graph exceeds the configured file limit.');
         }
 
-        $version = $this->provider->version($versionId);
+        $version = $this->activeProvider->version($versionId);
         if (($version['project_type'] ?? null) !== $projectType || ($version['server_side'] ?? null) === 'unsupported') {
             throw new ConflictHttpException('The selected project cannot run on this server.');
         }
@@ -74,6 +76,7 @@ class DependencyPlanner
             'filename' => $file['filename'],
             'size' => $file['size'],
             'sha512' => $file['sha512'],
+            ...(isset($file['sha1']) ? ['sha1' => $file['sha1']] : []),
             'dependency' => $depth > 0,
         ];
 
@@ -102,7 +105,7 @@ class DependencyPlanner
                     throw new ProviderResponseException('A required dependency has no project or version identifier.');
                 }
 
-                $versions = $this->provider->versions($projectId, $gameVersion, $loader);
+                $versions = $this->activeProvider->versions($projectId, $gameVersion, $loader);
                 $selectedVersion = collect($versions)->first(
                     fn (array $version) => ($version['version_type'] ?? null) === 'release'
                         && is_string($version['id'] ?? null)

@@ -21,6 +21,7 @@ const StartupContainer = () => {
     const { clearFlashes, clearAndAddHttpError } = useFlash();
 
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
+    const software = ServerContext.useStoreState((state) => state.server.data!.beaconCapabilities?.software);
     const variables = ServerContext.useStoreState(
         ({ server }) => ({
             variables: server.data!.variables,
@@ -84,6 +85,14 @@ const StartupContainer = () => {
         )
     ) : (
         <ServerContentBlock title={'Startup Settings'} showFlashKey={'startup:image'}>
+            {software === 'curseforge' && (
+                <p css={tw`mb-6 text-sm text-neutral-300`}>
+                    Enter the Modpack Project ID and Modpack File ID below. Use latest for the latest file. After
+                    changing these values, use Reinstall Server in Settings to install the selected pack. Saving a
+                    variable alone does not install it. Reinstall may overwrite files; create a backup first. The Java
+                    image is selected automatically after installation and verified before automatic startup.
+                </p>
+            )}
             <div css={tw`md:flex`}>
                 <TitledGreyBox title={'Startup Command'} css={tw`flex-1`}>
                     <div css={tw`px-1 py-2`}>

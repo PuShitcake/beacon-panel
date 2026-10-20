@@ -1,17 +1,23 @@
 import http from '@/api/http';
 import { v4 as uuid } from 'uuid';
 
+export type ModProvider = 'curseforge' | 'modrinth';
+
 export interface ModContext {
     enabled: boolean;
     authorized: boolean;
     software: string;
     software_name: string;
     unavailable_reason: string | null;
-    source: 'modpack' | 'catalog' | null;
+    source: 'modpack' | 'catalog' | 'native_modpack' | null;
     loader: 'forge' | 'neoforge' | 'fabric' | 'quilt' | null;
     loader_version: string | null;
     game_version: string | null;
-    categories: string[];
+    provider: ModProvider;
+    providers: Array<{ id: ModProvider; name: string; available: boolean }>;
+    provider_available: boolean;
+    provider_unavailable_reason: string | null;
+    categories: Array<{ value: string; label: string }>;
     active_operation: ModOperation | null;
     automatic_power: boolean;
     backup_before_mutation: boolean;
@@ -37,11 +43,12 @@ export interface ModVersion {
     version_type: string;
     game_versions: string[];
     loaders: string[];
-    file: { filename: string; size: number; sha512: string };
+    file: { filename: string; size: number; sha512: string | null; sha1?: string };
 }
 
 export interface ModInstallation {
     id: number;
+    provider: ModProvider;
     project_id: string;
     project_name: string | null;
     version_id: string;
@@ -68,7 +75,7 @@ export interface ModOperation {
 }
 
 export interface ModInstallPlan {
-    provider: 'modrinth';
+    provider: ModProvider;
     project_type: 'mod';
     loader: string;
     game_version: string;
@@ -80,7 +87,8 @@ export interface ModInstallPlan {
         icon_url: string | null;
         filename: string;
         size: number;
-        sha512: string;
+        sha512: string | null;
+        sha1?: string;
         dependency: boolean;
     }>;
     optional_dependencies: Array<{ project_id?: string; version_id?: string }>;
@@ -95,8 +103,8 @@ const mutationHeaders = () => ({
     'Idempotency-Key': uuid(),
 });
 
-export const getModContext = async (server: string): Promise<ModContext> => {
-    const { data } = await http.get(`${base(server)}/context`);
+export const getModContext = async (server: string, provider: ModProvider = 'curseforge'): Promise<ModContext> => {
+    const { data } = await http.get(`${base(server)}/context`, { params: { provider } });
     return data.data;
 };
 
@@ -114,37 +122,57 @@ export const searchMods = async (
     server: string,
     query: string,
     offset = 0,
-    category = ''
+    category = '',
+    provider: ModProvider = 'curseforge'
 ): Promise<{ projects: ModProject[]; offset: number; limit: number; total: number }> => {
     const { data } = await http.get(`${base(server)}/search`, {
-        params: { query, offset, ...(category ? { category } : {}) },
+        params: { provider, query, offset, ...(category ? { category } : {}) },
     });
     return data.data;
 };
 
-export const getModVersions = async (server: string, project: string): Promise<ModVersion[]> => {
-    const { data } = await http.get(`${base(server)}/projects/${encodeURIComponent(project)}/versions`);
+export const getModVersions = async (
+    server: string,
+    project: string,
+    provider: ModProvider = 'curseforge'
+): Promise<ModVersion[]> => {
+    const { data } = await http.get(`${base(server)}/projects/${encodeURIComponent(project)}/versions`, {
+        params: { provider },
+    });
     return data.data;
 };
 
-export const getModPlan = async (server: string, version: string): Promise<ModInstallPlan> => {
-    const { data } = await http.get(`${base(server)}/plan`, { params: { version_id: version } });
+export const getModPlan = async (
+    server: string,
+    version: string,
+    provider: ModProvider = 'curseforge'
+): Promise<ModInstallPlan> => {
+    const { data } = await http.get(`${base(server)}/plan`, { params: { provider, version_id: version } });
     return data.data;
 };
 
-export const installMod = async (server: string, version: string): Promise<ModOperation> => {
+export const installMod = async (
+    server: string,
+    version: string,
+    provider: ModProvider = 'curseforge'
+): Promise<ModOperation> => {
     const { data } = await http.post(
         `${base(server)}/install`,
-        { version_id: version },
+        { provider, version_id: version },
         { headers: mutationHeaders() }
     );
     return data.data;
 };
 
-export const updateMod = async (server: string, installation: number, version: string): Promise<ModOperation> => {
+export const updateMod = async (
+    server: string,
+    installation: number,
+    version: string,
+    provider: ModProvider = 'curseforge'
+): Promise<ModOperation> => {
     const { data } = await http.post(
         `${base(server)}/installations/${installation}/update`,
-        { version_id: version },
+        { provider, version_id: version },
         { headers: mutationHeaders() }
     );
     return data.data;

@@ -10,10 +10,13 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Pterodactyl\Models\BeaconContentInstallation;
 use Pterodactyl\Beacon\Content\ContentPowerService;
+use Pterodactyl\Beacon\Content\ContentRuntimeResolver;
 use Pterodactyl\Beacon\Operations\PublicOperationError;
 use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Pterodactyl\Beacon\Content\PrepareContentMutationService;
+use Pterodactyl\Beacon\Content\Providers\CurseForgeModProvider;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Pterodactyl\Beacon\Content\Exceptions\ProviderResponseException;
 
 class ProcessModOperationJob implements ShouldQueue
 {
@@ -32,6 +35,7 @@ class ProcessModOperationJob implements ShouldQueue
         ContentPowerService $power,
         PrepareContentMutationService $prepare,
         DaemonFileRepository $files,
+        ContentRuntimeResolver $runtime,
     ): void {
         $operation = BeaconOperation::query()->findOrFail($this->operationId);
         if (in_array($operation->status, [BeaconOperation::STATUS_SUCCEEDED, BeaconOperation::STATUS_FAILED], true)) {
@@ -59,6 +63,7 @@ class ProcessModOperationJob implements ShouldQueue
 
                 return;
             }
+            $runtime->assertModOperationRuntime($server, data_get($operation->payload, 'runtime', []));
             if (!$power->prepare($operation, $server)) {
                 $this->release(5);
 
@@ -69,6 +74,9 @@ class ProcessModOperationJob implements ShouldQueue
 
                 return;
             }
+
+            // Startup IDs can change while a safety backup is pending. Check again before I/O.
+            $runtime->assertModOperationRuntime($server->fresh(), data_get($operation->payload, 'runtime', []));
 
             $operation->refresh();
             $payload = $operation->payload;
@@ -105,18 +113,30 @@ class ProcessModOperationJob implements ShouldQueue
         DaemonFileRepository $files,
     ): array {
         $payload = $operation->payload;
+        $provider = $payload['provider'] ?? 'modrinth';
+        if (!in_array($provider, ['modrinth', 'curseforge'], true)
+            || data_get($payload, 'plan.provider', $provider) !== $provider) {
+            throw new ConflictHttpException('The stored mod provider is invalid. No mod files were changed.');
+        }
         $plan = data_get($payload, 'plan.files');
         if (!is_array($plan) || $plan === []) {
             throw new \InvalidArgumentException('The stored mod installation plan is invalid.');
         }
-        $filenames = collect($plan)->pluck('filename')->filter('is_string')->values();
+        $filenames = collect($plan)->pluck('filename')->filter(fn ($value) => is_string($value))->values();
         if ($filenames->count() !== count($plan) || $filenames->unique()->count() !== $filenames->count()) {
             throw new \InvalidArgumentException('The stored mod plan contains invalid or duplicate filenames.');
         }
+        foreach ($plan as $item) {
+            if (strlen($item['filename']) > 191 || !preg_match('/^[A-Za-z0-9][A-Za-z0-9._+-]*\.jar$/D', $item['filename'])
+                || !is_int($item['size'] ?? null) || $item['size'] < 1 || $item['size'] > config('beacon.content.max_file_bytes')) {
+                throw new ConflictHttpException('The stored mod file violates the filename or size policy. No mod files were changed.');
+            }
+        }
 
-        $replaceIds = collect($payload['replace_installation_ids'] ?? [])->filter('is_int')->values()->all();
+        $replaceIds = collect($payload['replace_installation_ids'] ?? [])->filter(fn ($value) => is_int($value))->values()->all();
         $replace = BeaconContentInstallation::query()
             ->where('server_id', $server->id)
+            ->where('provider', $provider)
             ->whereIn('id', $replaceIds ?: [0])
             ->get();
         if (count($replaceIds) !== $replace->count()) {
@@ -132,7 +152,7 @@ class ProcessModOperationJob implements ShouldQueue
             $this->ensureDirectory($files, $rollbackName, '/.beacon');
         }
 
-        $existing = collect($files->getDirectory('/mods'))->pluck('name')->filter('is_string');
+        $existing = collect($files->getDirectory('/mods'))->pluck('name')->filter(fn ($value) => is_string($value));
         $replaceNames = $replace->where('status', 'installed')->pluck('filename');
         $collision = $filenames->first(fn (string $name) => $existing->contains($name) && !$replaceNames->contains($name));
         if (is_string($collision)) {
@@ -142,13 +162,37 @@ class ProcessModOperationJob implements ShouldQueue
         $movedOld = false;
         $movedNew = false;
         try {
-            foreach ($plan as $item) {
-                $files->pull($item['url'], '/.beacon/' . $stageName, [
+            $downloadUrls = [];
+            foreach ($plan as $index => $item) {
+                try {
+                    $downloadUrls[$index] = $provider === 'curseforge'
+                        ? app(CurseForgeModProvider::class)->resolveDownloadUrl($item['url']) : $item['url'];
+                } catch (ProviderResponseException $exception) {
+                    throw new ConflictHttpException('The CurseForge download could not be prepared safely. No mod files were changed. Try again later.', $exception);
+                }
+            }
+            foreach ($plan as $index => $item) {
+                $files->pull($downloadUrls[$index], '/.beacon/' . $stageName, [
                     'filename' => $item['filename'],
                     'foreground' => true,
                 ]);
             }
             $this->assertFilesMatch($files, '/.beacon/' . $stageName, $plan, 'download staging');
+            foreach ($plan as &$item) {
+                $algorithm = $provider === 'curseforge' ? 'sha1' : 'sha512';
+                $expected = $item[$algorithm] ?? null;
+                if (!is_string($expected) || !preg_match($algorithm === 'sha1' ? '/^[a-f0-9]{40}$/D' : '/^[a-f0-9]{128}$/D', $expected)) {
+                    throw new ConflictHttpException('The stored mod file hash is invalid. No mod files were changed.');
+                }
+                $hashes = $files->getFileHashes('/.beacon/' . $stageName . '/' . $item['filename'], min((int) $item['size'], (int) config('beacon.content.max_file_bytes')));
+                if ($hashes['size'] !== (int) $item['size'] || !hash_equals($expected, $hashes[$algorithm])) {
+                    throw new ConflictHttpException('A downloaded mod failed checksum verification. No mod files were changed.');
+                }
+                // CurseForge supplies SHA-1. Persist the SHA-512 computed from the verified bytes
+                // in the existing native content record; no schema change or invented hash.
+                $item['sha512'] = $hashes['sha512'];
+            }
+            unset($item);
             if ($replace->isNotEmpty()) {
                 $files->renameFiles('/', $replace->map(fn (BeaconContentInstallation $item) => [
                     'from' => $this->managedPath($item),
@@ -163,7 +207,7 @@ class ProcessModOperationJob implements ShouldQueue
             $movedNew = true;
             $this->assertFilesMatch($files, '/mods', $plan, 'final installation');
 
-            DB::transaction(function () use ($replaceIds, $server, $operation, $payload, $plan) {
+            DB::transaction(function () use ($replaceIds, $server, $operation, $payload, $plan, $provider) {
                 if ($replaceIds !== []) {
                     BeaconContentInstallation::query()
                         ->where('server_id', $server->id)
@@ -175,7 +219,7 @@ class ProcessModOperationJob implements ShouldQueue
                     BeaconContentInstallation::query()->create([
                         'server_id' => $server->id,
                         'operation_id' => $operation->id,
-                        'provider' => 'modrinth',
+                        'provider' => $provider,
                         'project_id' => $item['project_id'],
                         'project_name' => $item['project_name'] ?? $item['name'],
                         'version_id' => $item['version_id'],
@@ -240,9 +284,10 @@ class ProcessModOperationJob implements ShouldQueue
         Server $server,
         DaemonFileRepository $files,
     ): array {
-        $ids = collect(data_get($operation->payload, 'remove_installation_ids', []))->filter('is_int')->values()->all();
+        $ids = collect(data_get($operation->payload, 'remove_installation_ids', []))->filter(fn ($value) => is_int($value))->values()->all();
         $installations = BeaconContentInstallation::query()
             ->where('server_id', $server->id)
+            ->where('provider', data_get($operation->payload, 'provider', 'modrinth'))
             ->whereIn('id', $ids ?: [0])
             ->get();
         if ($ids === [] || count($ids) !== $installations->count()) {
@@ -300,8 +345,11 @@ class ProcessModOperationJob implements ShouldQueue
     private function ensureDirectory(DaemonFileRepository $files, string $name, string $root): void
     {
         $path = rtrim($root, '/') ?: '/';
-        $exists = collect($files->getDirectory($path))->contains(fn (array $entry) => ($entry['name'] ?? null) === $name);
-        if (!$exists) {
+        $entry = collect($files->getDirectory($path))->first(fn (array $entry) => ($entry['name'] ?? null) === $name);
+        if (is_array($entry) && (($entry['symlink'] ?? false) || ($entry['file'] ?? false))) {
+            throw new ConflictHttpException('Managed mod directories cannot be files or symbolic links.');
+        }
+        if (!$entry) {
             $files->createDirectory($name, $path);
         }
     }
@@ -331,7 +379,8 @@ class ProcessModOperationJob implements ShouldQueue
         $entries = collect($files->getDirectory($directory))->keyBy('name');
         foreach ($plan as $item) {
             $entry = $entries->get($item['filename']);
-            if (!is_array($entry) || (int) ($entry['size'] ?? -1) !== (int) $item['size']) {
+            if (!is_array($entry) || ($entry['file'] ?? false) !== true || ($entry['symlink'] ?? false) !== false
+                || (int) ($entry['size'] ?? -1) !== (int) $item['size']) {
                 throw new \RuntimeException("A mod file failed {$stage} verification. No unverified file was recorded as installed.");
             }
         }

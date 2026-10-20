@@ -208,7 +208,7 @@ class ServerCreationServiceTest extends IntegrationTestCase
         $this->assertDatabaseMissing('servers', ['owner_id' => $user->id]);
     }
 
-    public function testCurseForgeGenericWithoutAProjectWaitsForClientSelection(): void
+    public function testCurseForgeGenericWithoutAProjectDoesNotCreateAPickerPlaceholder(): void
     {
         $nest = Nest::factory()->create(['name' => config('beacon.modpacks.nest.name')]);
         $egg = Egg::factory()->create([
@@ -217,24 +217,15 @@ class ServerCreationServiceTest extends IntegrationTestCase
         ]);
         $method = new \ReflectionMethod(ServerCreationService::class, 'prepareCurseForgeSelection');
 
-        $data = $method->invoke($this->getService(), [
+        $this->expectException(\Pterodactyl\Exceptions\DisplayException::class);
+        $this->expectExceptionMessage('Modpack Project ID');
+
+        $method->invoke($this->getService(), [
             'egg_id' => $egg->id,
             'environment' => ['PROJECT_ID' => '', 'VERSION' => 'latest'],
             'start_on_completion' => true,
         ]);
 
-        $this->assertTrue($data['skip_scripts']);
-        $this->assertFalse($data['start_on_completion']);
-        $this->assertSame('pending-selection', $data['environment']['PROJECT_ID']);
-        $this->assertSame('latest', $data['environment']['VERSION']);
-
-        $pending = new \ReflectionMethod(ServerCreationService::class, 'isPendingCurseForgeSelection');
-        $this->assertTrue($pending->invoke($this->getService(), $data));
-        $this->assertFalse($pending->invoke($this->getService(), [
-            'egg_id' => $this->bungeecord->id,
-            'skip_scripts' => true,
-            'environment' => ['PROJECT_ID' => 'pending-selection'],
-        ]));
     }
 
     private function getService(): ServerCreationService

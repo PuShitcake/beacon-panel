@@ -17,6 +17,7 @@ use Pterodactyl\Repositories\Wings\DaemonServerRepository;
 use Pterodactyl\Services\Deployment\FindViableNodesService;
 use Pterodactyl\Repositories\Eloquent\ServerVariableRepository;
 use Pterodactyl\Services\Deployment\AllocationSelectionService;
+use Pterodactyl\Beacon\Modpacks\NativeCurseForgeInstallationService;
 use Pterodactyl\Exceptions\Http\Connection\DaemonConnectionException;
 
 class ServerCreationService
@@ -33,6 +34,7 @@ class ServerCreationService
         private ServerDeletionService $serverDeletionService,
         private ServerVariableRepository $serverVariableRepository,
         private VariableValidatorService $validatorService,
+        private NativeCurseForgeInstallationService $nativeCurseForge,
     ) {
     }
 
@@ -92,12 +94,16 @@ class ServerCreationService
             $this->storeAssignedAllocations($server, $data);
             $this->storeEggVariables($server, $eggVariableData);
 
+            if ($this->nativeCurseForge->manages($server)) {
+                $this->nativeCurseForge->begin($server, false, (bool) ($data['start_on_completion'] ?? false));
+            }
+
             return $server;
         }, 5);
 
         try {
             $this->daemonServerRepository->setServer($server)->create(
-                Arr::get($data, 'start_on_completion', false) ?? false
+                $this->nativeCurseForge->manages($server) ? false : (Arr::get($data, 'start_on_completion', false) ?? false)
             );
         } catch (DaemonConnectionException $exception) {
             $this->serverDeletionService->withForce()->handle($server);
@@ -105,23 +111,17 @@ class ServerCreationService
             throw $exception;
         }
 
-        if ($this->isPendingCurseForgeSelection($data)) {
-            // Wings has already accepted and persisted this server. There is no
-            // installer to wait for, so do not make Client API availability
-            // depend on the asynchronous skip-script callback reaching Panel.
-            // Leave installed_at untouched so a later native callback retains
-            // its normal first-install semantics.
-            $server->forceFill(['status' => null])->save();
+        if ($this->nativeCurseForge->manages($server)) {
+            $operation = \Pterodactyl\Models\BeaconOperation::query()->where('server_id', $server->id)
+                ->where('type', NativeCurseForgeInstallationService::TYPE)->latest('id')->firstOrFail();
+            $this->nativeCurseForge->enqueue($operation);
         }
 
         return $server;
     }
 
     /**
-     * A CurseForge Generic instance without a selected project must exist before
-     * its owner can use the Client Area picker. Keep the native creation flow,
-     * but skip only that first Egg installation and use a validator-safe marker
-     * until Beacon replaces it with trusted numeric IDs before reinstalling.
+     * The retired picker no longer supplies IDs later. Require the native Egg selection now.
      */
     private function prepareCurseForgeSelection(array $data): array
     {
@@ -132,34 +132,16 @@ class ServerCreationService
             return $data;
         }
 
-        $environment = Arr::get($data, 'environment', []);
-        $environment = is_array($environment) ? $environment : [];
-        $projectId = trim((string) ($environment['PROJECT_ID'] ?? ''));
-        if ($projectId !== '') {
-            return $data;
+        if (!($data['skip_scripts'] ?? false)) {
+            $environment = Arr::get($data, 'environment', []);
+            $this->nativeCurseForge->validateSelection(is_array($environment) ? $environment : []);
+            // Wings creates its runtime environment before invoking the Egg installer. The
+            // original dropdown may contain unavailable/OpenJ9 tags; use trusted bootstrap
+            // policy now and let manifest verification select the actual Java after install.
+            $data['image'] = $this->nativeCurseForge->initialImage();
         }
-
-        $environment['PROJECT_ID'] = 'pending-selection';
-        $environment['VERSION'] = 'latest';
-        $data['environment'] = $environment;
-        $data['skip_scripts'] = true;
-        $data['start_on_completion'] = false;
 
         return $data;
-    }
-
-    private function isPendingCurseForgeSelection(array $data): bool
-    {
-        if (($data['skip_scripts'] ?? false) !== true
-            || Arr::get($data, 'environment.PROJECT_ID') !== 'pending-selection') {
-            return false;
-        }
-
-        $egg = Egg::query()->with('nest')->find($data['egg_id'] ?? 0);
-
-        return $egg instanceof Egg
-            && $egg->name === config('beacon.modpacks.nest.curseforge_egg')
-            && $egg->nest?->name === config('beacon.modpacks.nest.name');
     }
 
     /**

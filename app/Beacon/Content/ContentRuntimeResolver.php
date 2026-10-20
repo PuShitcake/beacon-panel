@@ -6,13 +6,23 @@ use Pterodactyl\Models\Server;
 use Pterodactyl\Models\BeaconServerMetadata;
 use Pterodactyl\Models\BeaconModpackInstallation;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Pterodactyl\Beacon\Modpacks\NativeCurseForgeContentRuntimeResolver;
 
 class ContentRuntimeResolver
 {
     private const MOD_LOADERS = ['fabric', 'forge', 'neoforge', 'quilt'];
 
+    public function __construct(private NativeCurseForgeContentRuntimeResolver $native)
+    {
+    }
+
     public function resolve(Server $server, bool $required = true): ?array
     {
+        $native = $this->native->resolve($server);
+        if ($native !== null) {
+            return $native['runtime'] ?? $this->unavailable($required, $native['reason']);
+        }
+
         $modpack = BeaconModpackInstallation::query()
             ->where('server_id', $server->id)
             ->whereIn('status', ['installed', 'updating', 'reinstalling'])
@@ -71,5 +81,17 @@ class ContentRuntimeResolver
         }
 
         return null;
+    }
+
+    public function assertModOperationRuntime(Server $server, array $expected): void
+    {
+        $server->loadMissing('egg.nest');
+        $runtime = $this->resolve($server, false);
+        if ($server->egg?->nest?->name !== config('beacon.modpacks.nest.name', 'Beacon')
+            || $server->status !== null || $server->transfer()->exists()
+            || !$runtime || $runtime['loader'] !== 'forge' || $runtime['destination'] !== 'mods'
+            || $runtime['project_type'] !== 'mod' || $runtime !== $expected) {
+            throw new ConflictHttpException('The Minecraft runtime changed or is unavailable. No mod files were changed. Reload the Mod Installer and try again.');
+        }
     }
 }

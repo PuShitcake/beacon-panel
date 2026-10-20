@@ -17,6 +17,49 @@ use Pterodactyl\Exceptions\Http\Connection\DaemonConnectionException;
  */
 class DaemonFileRepository extends DaemonRepository
 {
+    /** Hash bounded file contents as a stream without buffering a large mod JAR in Panel memory. */
+    public function getFileHashes(string $path, int $maxBytes): array
+    {
+        Assert::isInstanceOf($this->server, Server::class);
+        Assert::greaterThan($maxBytes, 0);
+        try {
+            $response = $this->getHttpClient()->get(sprintf('/api/servers/%s/files/contents', $this->server->uuid), [
+                'query' => ['file' => $path], 'stream' => true, 'allow_redirects' => false,
+            ]);
+        } catch (TransferException $exception) {
+            throw new DaemonConnectionException($exception);
+        }
+        $body = $response->getBody();
+        try {
+            if ($response->getStatusCode() !== 200) {
+                throw new \RuntimeException('Wings did not return file contents for verification.');
+            }
+            $length = $response->getHeaderLine('Content-Length');
+            if (ctype_digit($length) && (float) $length > $maxBytes) {
+                throw new FileSizeTooLargeException();
+            }
+            $sha1 = hash_init('sha1');
+            $sha512 = hash_init('sha512');
+            $size = 0;
+            while (!$body->eof()) {
+                $chunk = $body->read(min(1048576, $maxBytes + 1 - $size));
+                $size += strlen($chunk);
+                if ($size > $maxBytes) {
+                    throw new FileSizeTooLargeException();
+                }
+                if ($chunk === '' && !$body->eof()) {
+                    throw new \RuntimeException('The file verification stream stopped unexpectedly.');
+                }
+                hash_update($sha1, $chunk);
+                hash_update($sha512, $chunk);
+            }
+
+            return ['size' => $size, 'sha1' => hash_final($sha1), 'sha512' => hash_final($sha512)];
+        } finally {
+            $body->close();
+        }
+    }
+
     /**
      * Return the contents of a given file.
      *

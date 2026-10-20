@@ -121,7 +121,7 @@ class BeaconModpackJvmMemoryTest extends TestCase
         $runtime = \Mockery::mock(ModpackRuntimeService::class);
         $runtime->expects('switchToCurseForge')->with($server, $release)->andReturn($server);
         $reinstall = \Mockery::mock(ReinstallServerService::class);
-        $reinstall->expects('handle')->with($server)->andThrow(new \RuntimeException('Stopped after verifying retry reset'));
+        $reinstall->expects('handle')->with($server, true)->andThrow(new \RuntimeException('Stopped after verifying retry reset'));
         $phase = 'switch_curseforge';
         $arguments = [
             $operation, $server, &$payload, &$phase,

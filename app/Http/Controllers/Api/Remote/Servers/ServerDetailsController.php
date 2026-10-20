@@ -127,6 +127,13 @@ class ServerDetailsController extends Controller
             // at this point in the process.
             Server::query()->where('node_id', $node->id)
                 ->whereIn('status', [Server::STATUS_INSTALLING, Server::STATUS_RESTORING_BACKUP])
+                // A Wings restart cannot declare queued Java verification complete.
+                ->whereNotExists(function ($query) {
+                    $query->selectRaw('1')->from('beacon_operations')
+                        ->whereColumn('beacon_operations.server_id', 'servers.id')
+                        ->where('type', \Pterodactyl\Beacon\Modpacks\NativeCurseForgeInstallationService::TYPE)
+                        ->whereIn('beacon_operations.status', ['pending', 'running']);
+                })
                 ->update(['status' => null]);
         });
 

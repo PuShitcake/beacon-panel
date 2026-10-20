@@ -12,8 +12,8 @@ use Pterodactyl\Beacon\Content\DependencyPlanner;
 use Pterodactyl\Models\BeaconContentInstallation;
 use Pterodactyl\Jobs\Beacon\ProcessModOperationJob;
 use Pterodactyl\Beacon\Content\ContentRuntimeResolver;
-use Pterodactyl\Beacon\Content\Providers\ContentProvider;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Pterodactyl\Beacon\Content\Providers\ModProviderRegistry;
 use Pterodactyl\Beacon\Operations\StartContentOperationService;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
 use Pterodactyl\Beacon\Minecraft\ServerSoftwareCapabilityService;
@@ -25,7 +25,7 @@ use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 class BeaconModController extends ClientApiController
 {
     public function __construct(
-        private ContentProvider $provider,
+        private ModProviderRegistry $providers,
         private DependencyPlanner $planner,
         private ContentRuntimeResolver $runtime,
         private StartContentOperationService $operations,
@@ -38,6 +38,14 @@ class BeaconModController extends ClientApiController
     {
         $runtime = $this->modRuntime($server, false);
         $capabilities = $this->capabilities->resolve($server);
+        $provider = $this->providerKey($request);
+        $categories = [];
+        $providerError = null;
+        try {
+            $categories = $this->providers->categories($provider);
+        } catch (ProviderResponseException $exception) {
+            $providerError = $exception->getMessage();
+        }
         $active = BeaconOperation::query()
             ->where('server_id', $server->id)
             ->where('type', 'like', 'mod.%')
@@ -55,7 +63,11 @@ class BeaconModController extends ClientApiController
             'loader' => $runtime['loader'] ?? null,
             'loader_version' => $runtime['loader_version'] ?? null,
             'game_version' => $runtime['game_version'] ?? null,
-            'categories' => config('beacon.mods.categories', []),
+            'provider' => $provider,
+            'providers' => $this->providers->describe(),
+            'provider_available' => $providerError === null,
+            'provider_unavailable_reason' => $providerError,
+            'categories' => $categories,
             'active_operation' => $active ? $this->operationData($active) : null,
             'automatic_power' => true,
             'backup_before_mutation' => (bool) config('beacon.content.backup_before_mutation'),
@@ -80,7 +92,7 @@ class BeaconModController extends ClientApiController
     {
         $runtime = $this->modRuntime($server);
 
-        return new JsonResponse(['data' => $this->providerCall(fn () => $this->provider->search(
+        return new JsonResponse(['data' => $this->providerCall(fn () => $this->providers->get($this->providerKey($request))->search(
             $request->string('query')->toString(),
             $runtime['game_version'],
             $runtime['loader'],
@@ -94,7 +106,7 @@ class BeaconModController extends ClientApiController
     {
         $runtime = $this->modRuntime($server);
 
-        return new JsonResponse(['data' => $this->providerCall(fn () => $this->provider->versions(
+        return new JsonResponse(['data' => $this->providerCall(fn () => $this->providers->get($this->providerKey($request))->versions(
             $projectId,
             $runtime['game_version'],
             $runtime['loader'],
@@ -105,7 +117,7 @@ class BeaconModController extends ClientApiController
     {
         $request->validate(['version_id' => 'required|string|max:64']);
         $runtime = $this->modRuntime($server);
-        $plan = $this->buildPlan($server, $request->string('version_id')->toString(), $runtime);
+        $plan = $this->buildPlan($server, $request->string('version_id')->toString(), $runtime, $this->providerKey($request));
 
         return new JsonResponse(['data' => $this->publicPlan($plan)]);
     }
@@ -137,12 +149,14 @@ class BeaconModController extends ClientApiController
         $request->validate(['version_id' => 'required|string|max:64']);
         $runtime = $this->modRuntime($server);
         $versionId = $request->string('version_id')->toString();
+        $provider = $this->providerKey($request);
 
         return $this->start($request, $server, 'install', [
             'action' => 'install',
-            'intent' => ['version_id' => $versionId],
+            'provider' => $provider,
+            'intent' => ['provider' => $provider, 'version_id' => $versionId],
             'runtime' => $runtime,
-            'plan' => $this->buildPlan($server, $versionId, $runtime),
+            'plan' => $this->buildPlan($server, $versionId, $runtime, $provider),
             'replace_installation_ids' => [],
             'phase' => 'prepare',
         ]);
@@ -158,9 +172,10 @@ class BeaconModController extends ClientApiController
 
         return $this->start($request, $server, 'update', [
             'action' => 'update',
-            'intent' => ['installation_id' => $installation->id, 'version_id' => $versionId],
+            'provider' => $installation->provider,
+            'intent' => ['provider' => $installation->provider, 'installation_id' => $installation->id, 'version_id' => $versionId],
             'runtime' => $runtime,
-            'plan' => $this->buildPlan($server, $versionId, $runtime, $replace->pluck('id')->all()),
+            'plan' => $this->buildPlan($server, $versionId, $runtime, $installation->provider, $replace->pluck('id')->all(), $installation->project_id),
             'installation_id' => $installation->id,
             'replace_installation_ids' => $replace->pluck('id')->all(),
             'phase' => 'prepare',
@@ -175,9 +190,10 @@ class BeaconModController extends ClientApiController
 
         return $this->start($request, $server, 'reinstall', [
             'action' => 'reinstall',
-            'intent' => ['installation_id' => $installation->id, 'version_id' => $installation->version_id],
+            'provider' => $installation->provider,
+            'intent' => ['provider' => $installation->provider, 'installation_id' => $installation->id, 'version_id' => $installation->version_id],
             'runtime' => $runtime,
-            'plan' => $this->buildPlan($server, $installation->version_id, $runtime, $replace->pluck('id')->all()),
+            'plan' => $this->buildPlan($server, $installation->version_id, $runtime, $installation->provider, $replace->pluck('id')->all(), $installation->project_id),
             'installation_id' => $installation->id,
             'replace_installation_ids' => $replace->pluck('id')->all(),
             'phase' => 'prepare',
@@ -186,12 +202,14 @@ class BeaconModController extends ClientApiController
 
     public function uninstall(BeaconModRequest $request, Server $server, int $installationId): JsonResponse
     {
-        $this->modRuntime($server);
+        $runtime = $this->modRuntime($server);
         $installation = $this->installation($server, $installationId);
         $remove = $this->replacementInstallations($server, $installation);
 
         return $this->start($request, $server, 'uninstall', [
             'action' => 'uninstall',
+            'provider' => $installation->provider,
+            'runtime' => $runtime,
             'intent' => ['installation_id' => $installation->id],
             'installation_id' => $installation->id,
             'remove_installation_ids' => $remove->pluck('id')->all(),
@@ -206,19 +224,22 @@ class BeaconModController extends ClientApiController
         }
 
         [$operation, $created] = DB::transaction(function () use ($request, $server, $action, $payload) {
-            Server::query()->whereKey($server->id)->lockForUpdate()->firstOrFail();
+            $current = Server::query()->whereKey($server->id)->lockForUpdate()->firstOrFail();
+            $this->runtime->assertModOperationRuntime($current, $payload['runtime']);
             $key = $this->idempotencyKey($request);
             $actorKey = 'user:' . $request->user()->id;
             $active = BeaconOperation::query()
                 ->where('server_id', $server->id)
                 ->where(function ($query) {
                     $query->where('type', 'like', 'mod.%')
+                        ->orWhere('type', 'native_modpack.runtime')
+                        ->orWhere('type', 'like', 'content.%')
                         ->orWhere('type', 'like', 'modpack.%');
                 })
                 ->whereIn('status', [BeaconOperation::STATUS_PENDING, BeaconOperation::STATUS_RUNNING])
                 ->latest('id')
                 ->first();
-            if ($active instanceof BeaconOperation && str_starts_with($active->type, 'modpack.')) {
+            if ($active instanceof BeaconOperation && ($active->type === 'native_modpack.runtime' || str_starts_with($active->type, 'modpack.'))) {
                 throw new ConflictHttpException('A modpack operation is already running for this server.');
             }
             if ($active instanceof BeaconOperation
@@ -262,16 +283,22 @@ class BeaconModController extends ClientApiController
         return new JsonResponse(['data' => $this->operationData($operation)], JsonResponse::HTTP_ACCEPTED);
     }
 
-    private function buildPlan(Server $server, string $versionId, array $runtime, array $ignoreIds = []): array
+    private function buildPlan(Server $server, string $versionId, array $runtime, string $provider, array $ignoreIds = [], ?string $expectedProject = null): array
     {
         $plan = $this->providerCall(fn () => $this->planner->handle(
             $versionId,
             $runtime['game_version'],
             $runtime['loader'],
             'mod',
+            $provider,
+            $this->providers->get($provider),
         ));
+        if ($expectedProject !== null && !collect($plan['files'])->contains(fn (array $file) => !$file['dependency'] && $file['project_id'] === $expectedProject)) {
+            throw new ConflictHttpException('Select a version belonging to this installed mod and its original provider.');
+        }
         $installed = BeaconContentInstallation::query()
             ->where('server_id', $server->id)
+            ->where('provider', $provider)
             ->where('project_type', 'mod')
             ->whereNotIn('id', $ignoreIds ?: [0])
             ->get();
@@ -311,6 +338,7 @@ class BeaconModController extends ClientApiController
     {
         $otherDependencies = BeaconContentInstallation::query()
             ->where('server_id', $server->id)
+            ->where('provider', $root->provider)
             ->where('project_type', 'mod')
             ->where('is_dependency', false)
             ->where('id', '!=', $root->id)
@@ -318,15 +346,16 @@ class BeaconModController extends ClientApiController
             ->flatMap(fn (BeaconContentInstallation $item) => $item->dependencies ?? [])
             ->unique();
         $orphanProjects = collect($root->dependencies ?? [])
-            ->filter('is_string')
+            ->filter(fn ($value) => is_string($value))
             ->reject(fn (string $id) => $otherDependencies->contains($id));
 
         return BeaconContentInstallation::query()
             ->where('server_id', $server->id)
+            ->where('provider', $root->provider)
             ->where(function ($query) use ($root, $orphanProjects) {
                 $query->whereKey($root->id);
                 if ($orphanProjects->isNotEmpty()) {
-                    $query->orWhereIn('project_id', $orphanProjects->all());
+                    $query->orWhere(fn ($dependency) => $dependency->whereIn('project_id', $orphanProjects->all())->where('is_dependency', true));
                 }
             })
             ->get();
@@ -345,6 +374,14 @@ class BeaconModController extends ClientApiController
 
     private function modRuntime(Server $server, bool $required = true): ?array
     {
+        $capabilities = $this->capabilities->resolve($server);
+        if (!$capabilities['mods']) {
+            if ($required) {
+                throw new ConflictHttpException($capabilities['mod_unavailable_reason']);
+            }
+
+            return null;
+        }
         $runtime = $this->runtime->resolve($server, false);
         if (!is_array($runtime)) {
             if ($required) {
@@ -421,6 +458,16 @@ class BeaconModController extends ClientApiController
         $value = $request->attributes->get('beacon_correlation_id');
 
         return is_string($value) && Uuid::isValid($value) ? $value : Uuid::uuid4()->toString();
+    }
+
+    private function providerKey(Request $request): string
+    {
+        $provider = $request->input('provider', 'curseforge');
+        if (!is_string($provider) || !in_array($provider, ['curseforge', 'modrinth'], true)) {
+            throw new HttpException(422, 'Select CurseForge or Modrinth as the mod provider.');
+        }
+
+        return $provider;
     }
 
     private function idempotencyKey(Request $request): string

@@ -20,7 +20,10 @@ class BeaconModRequest extends ClientApiRequest
     {
         return [
             'query' => 'sometimes|nullable|string|max:100',
-            'category' => ['sometimes', 'nullable', 'string', Rule::in(config('beacon.mods.categories', []))],
+            'provider' => ['sometimes', 'string', Rule::in(['curseforge', 'modrinth'])],
+            'category' => $this->input('provider', 'curseforge') === 'modrinth'
+                ? ['sometimes', 'nullable', 'string', Rule::in(config('beacon.mods.categories', []))]
+                : ['sometimes', 'nullable', 'string', 'regex:/^[1-9][0-9]{0,18}$/D'],
             'version_id' => 'sometimes|string|max:64',
             'offset' => 'sometimes|integer|min:0|max:10000',
         ];

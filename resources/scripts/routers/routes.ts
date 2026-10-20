@@ -15,7 +15,6 @@ import ActivityLogContainer from '@/components/dashboard/activity/ActivityLogCon
 import ServerActivityLogContainer from '@/components/server/ServerActivityLogContainer';
 import ContentContainer from '@/components/server/beacon/ContentContainer';
 import ConfigurationContainer from '@/components/server/beacon/ConfigurationContainer';
-import ModpackInstallerContainer from '@/components/server/beacon/ModpackInstallerContainer';
 import ModInstallerContainer from '@/components/server/beacon/ModInstallerContainer';
 
 // Each of the router files is already code split out appropriately — so
@@ -92,13 +91,6 @@ export default {
             beaconCapability: 'plugins',
             name: 'Plugin Installer',
             component: ContentContainer,
-        },
-        {
-            path: '/modpacks',
-            permission: null,
-            ownerOnly: true,
-            name: 'Modpack Installer',
-            component: ModpackInstallerContainer,
         },
         {
             path: '/mods',

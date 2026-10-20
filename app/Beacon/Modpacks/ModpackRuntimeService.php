@@ -96,6 +96,23 @@ class ModpackRuntimeService
         );
     }
 
+    /** Native Egg finalization changes only the instance image, never its Egg or variables. */
+    public function applyNativeCurseForgeImage(Server $server, int $java): void
+    {
+        if (!$this->isCurseForgeServer($server)) {
+            throw new ModpackProviderException('Automatic Java selection requires the Beacon CurseForge Generic Egg.');
+        }
+        $server->forceFill(['image' => $this->curseForgeImage($java)])->save();
+        // Also sync on retries: a persisted image does not prove Wings received it.
+        $this->servers->setServer($server)->sync();
+    }
+
+    /** Bootstrap Wings before the Egg runs; this is not the verified game runtime. */
+    public function initialCurseForgeImage(): string
+    {
+        return $this->curseForgeImage(21);
+    }
+
     public function switchToInstaller(Server $server): Server
     {
         $egg = $this->installerEgg();

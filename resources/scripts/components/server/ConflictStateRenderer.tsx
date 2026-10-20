@@ -14,9 +14,13 @@ export default () => {
 
     return status === 'installing' || status === 'install_failed' || status === 'reinstall_failed' ? (
         <ScreenBlock
-            title={'Running Installer'}
-            image={ServerInstallSvg}
-            message={'Your server should be ready soon, please try again in a few minutes.'}
+            title={status === 'installing' ? 'Running Installer' : 'Installation Failed'}
+            image={status === 'installing' ? ServerInstallSvg : ServerErrorSvg}
+            message={
+                status === 'installing'
+                    ? 'Your server is being installed or its runtime is being verified. This page will update automatically.'
+                    : 'Installation or runtime verification failed. Ask an administrator to check the installation log and queue worker before reinstalling.'
+            }
         />
     ) : status === 'suspended' ? (
         <ScreenBlock

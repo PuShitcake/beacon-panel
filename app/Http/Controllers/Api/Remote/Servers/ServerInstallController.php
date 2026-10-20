@@ -13,6 +13,7 @@ use Pterodactyl\Repositories\Eloquent\ServerRepository;
 use Pterodactyl\Events\Server\Installed as ServerInstalled;
 use Illuminate\Contracts\Events\Dispatcher as EventDispatcher;
 use Pterodactyl\Http\Requests\Api\Remote\InstallationDataRequest;
+use Pterodactyl\Beacon\Modpacks\NativeCurseForgeInstallationService;
 
 class ServerInstallController extends Controller
 {
@@ -50,13 +51,17 @@ class ServerInstallController extends Controller
      * @throws \Pterodactyl\Exceptions\Repository\RecordNotFoundException
      * @throws \Pterodactyl\Exceptions\Model\DataValidationException
      */
-    public function store(InstallationDataRequest $request, string $uuid): JsonResponse
+    public function store(InstallationDataRequest $request, string $uuid, NativeCurseForgeInstallationService $nativeCurseForge): JsonResponse
     {
         $server = $this->repository->getByUuid($uuid);
         $status = null;
 
         if (! $server->node->is($request->attributes->get('node'))) {
             throw new HttpForbiddenException('Requesting node does not have permission to access this server.');
+        }
+
+        if ($nativeCurseForge->installed($server, $request->boolean('successful'), $request->boolean('reinstall'))) {
+            return new JsonResponse([], Response::HTTP_NO_CONTENT);
         }
 
         // Make sure the type of failure is accurate

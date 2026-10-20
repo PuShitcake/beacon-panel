@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import tw from 'twin.macro';
 import { ServerContext } from '@/state/server';
 import useFlash from '@/plugins/useFlash';
-import { httpErrorToHuman } from '@/api/http';
 import FlashMessageRender from '@/components/FlashMessageRender';
 import ServerContentBlock from '@/components/elements/ServerContentBlock';
 import ContentBox from '@/components/elements/ContentBox';
@@ -18,6 +17,7 @@ import {
     ModInstallPlan,
     ModOperation,
     ModProject,
+    ModProvider,
     ModVersion,
     getModContext,
     getModHistory,
@@ -51,6 +51,9 @@ const ModInstallerContainer = () => {
     const serverStatus = ServerContext.useStoreState((state) => state.status.value);
     const { clearFlashes, clearAndAddHttpError, addFlash } = useFlash();
     const [context, setContext] = useState<ModContext>();
+    const [provider, setProvider] = useState<ModProvider>('curseforge');
+    const [modalProvider, setModalProvider] = useState<ModProvider>('curseforge');
+    const generation = useRef(0);
     const [installations, setInstallations] = useState<ModInstallation[]>([]);
     const [history, setHistory] = useState<ModOperation[]>([]);
     const [projects, setProjects] = useState<ModProject[]>([]);
@@ -71,8 +74,9 @@ const ModInstallerContainer = () => {
     const [loading, setLoading] = useState(true);
     const [working, setWorking] = useState(false);
 
-    const reload = async () => {
-        const nextContext = await getModContext(server.uuid);
+    const reload = async (token = generation.current) => {
+        const nextContext = await getModContext(server.uuid, provider);
+        if (token !== generation.current) return nextContext;
         setContext(nextContext);
         setActive(nextContext.active_operation);
         if (nextContext.enabled) {
@@ -80,39 +84,65 @@ const ModInstallerContainer = () => {
                 getModInstallations(server.uuid),
                 getModHistory(server.uuid),
             ]);
+            if (token !== generation.current) return nextContext;
             setInstallations(nextInstallations);
             setHistory(nextHistory);
         }
         return nextContext;
     };
 
-    const runSearch = async (nextOffset = 0) => {
+    const runSearch = async (
+        nextOffset = 0,
+        selectedCategory = category,
+        searchQuery = query,
+        token = generation.current
+    ) => {
         setWorking(true);
         clearFlashes('beacon-mods');
         try {
-            const result = await searchMods(server.uuid, query.trim(), nextOffset, category);
+            const result = await searchMods(server.uuid, searchQuery.trim(), nextOffset, selectedCategory, provider);
+            if (token !== generation.current) return;
             setProjects(result.projects);
             setOffset(result.offset);
             setLimit(result.limit);
             setTotal(result.total);
         } catch (error) {
-            clearAndAddHttpError({ key: 'beacon-mods', error });
+            if (token === generation.current) clearAndAddHttpError({ key: 'beacon-mods', error });
         } finally {
-            setWorking(false);
+            if (token === generation.current) setWorking(false);
         }
     };
 
     useEffect(() => {
+        const token = ++generation.current;
+        setLoading(true);
+        setWorking(false);
+        setCategory('');
+        setQuery('');
+        setOffset(0);
+        setTotal(0);
+        setLimit(20);
+        setProjects([]);
+        setModalVisible(false);
+        setPlan(undefined);
         clearFlashes('beacon-mods');
-        reload()
+        reload(token)
             .then((nextContext) => {
-                if (nextContext.enabled) return runSearch(0);
+                if (token === generation.current && nextContext.enabled && nextContext.provider_available)
+                    return runSearch(0, '', '', token);
 
                 return Promise.resolve();
             })
-            .catch((error) => clearAndAddHttpError({ key: 'beacon-mods', error }))
-            .finally(() => setLoading(false));
-    }, [server.uuid]);
+            .catch((error) => {
+                if (token === generation.current) clearAndAddHttpError({ key: 'beacon-mods', error });
+            })
+            .finally(() => {
+                if (token === generation.current) setLoading(false);
+            });
+        return () => {
+            generation.current++;
+        };
+    }, [server.uuid, provider]);
 
     useEffect(() => {
         if (!active || working || !['pending', 'running'].includes(active.status)) return;
@@ -180,13 +210,13 @@ const ModInstallerContainer = () => {
         setActive(null);
     };
 
-    const loadPlan = async (selected: string) => {
+    const loadPlan = async (selected: string, selectedProvider = modalProvider) => {
         setVersionId(selected);
         setPlan(undefined);
         if (!selected) return;
         setWorking(true);
         try {
-            setPlan(await getModPlan(server.uuid, selected));
+            setPlan(await getModPlan(server.uuid, selected, selectedProvider));
         } catch (error) {
             clearAndAddHttpError({ key: 'beacon-mods', error });
         } finally {
@@ -198,16 +228,17 @@ const ModInstallerContainer = () => {
         setWorking(true);
         clearFlashes('beacon-mods');
         try {
-            const available = await getModVersions(server.uuid, project.id);
+            const available = await getModVersions(server.uuid, project.id, provider);
             if (available.length === 0) throw new Error('No compatible version is available for this server.');
             setSelectedProject(project);
             setEditing(undefined);
             setVersions(available);
             setModalMode('install');
+            setModalProvider(provider);
             setModalVisible(true);
-            await loadPlan(available[0].id);
+            await loadPlan(available[0].id, provider);
         } catch (error) {
-            clearAndAddHttpError({ key: 'beacon-mods', error: httpErrorToHuman(error) });
+            clearAndAddHttpError({ key: 'beacon-mods', error });
         } finally {
             setWorking(false);
         }
@@ -217,16 +248,17 @@ const ModInstallerContainer = () => {
         setWorking(true);
         clearFlashes('beacon-mods');
         try {
-            const available = await getModVersions(server.uuid, installation.project_id);
+            const available = await getModVersions(server.uuid, installation.project_id, installation.provider);
             if (available.length === 0) throw new Error('No compatible update is available for this server.');
             setSelectedProject(undefined);
             setEditing(installation);
             setVersions(available);
             setModalMode('update');
+            setModalProvider(installation.provider);
             setModalVisible(true);
-            await loadPlan(available[0].id);
+            await loadPlan(available[0].id, installation.provider);
         } catch (error) {
-            clearAndAddHttpError({ key: 'beacon-mods', error: httpErrorToHuman(error) });
+            clearAndAddHttpError({ key: 'beacon-mods', error });
         } finally {
             setWorking(false);
         }
@@ -239,13 +271,13 @@ const ModInstallerContainer = () => {
         try {
             const operation =
                 modalMode === 'update' && editing
-                    ? await updateMod(server.uuid, editing.id, versionId)
-                    : await installMod(server.uuid, versionId);
+                    ? await updateMod(server.uuid, editing.id, versionId, editing.provider)
+                    : await installMod(server.uuid, versionId, modalProvider);
             setModalVisible(false);
             await awaitOperation(operation);
             addFlash({ key: 'beacon-mods', type: 'success', message: 'Mod operation completed.' });
         } catch (error) {
-            clearAndAddHttpError({ key: 'beacon-mods', error: httpErrorToHuman(error) });
+            clearAndAddHttpError({ key: 'beacon-mods', error });
         } finally {
             setWorking(false);
         }
@@ -265,7 +297,7 @@ const ModInstallerContainer = () => {
             await awaitOperation(operation);
             addFlash({ key: 'beacon-mods', type: 'success', message: 'Mod operation completed.' });
         } catch (error) {
-            clearAndAddHttpError({ key: 'beacon-mods', error: httpErrorToHuman(error) });
+            clearAndAddHttpError({ key: 'beacon-mods', error });
         } finally {
             setWorking(false);
         }
@@ -285,7 +317,7 @@ const ModInstallerContainer = () => {
                 <p css={tw`text-sm text-neutral-300 mb-4`}>
                     Only versions compatible with Minecraft {context?.game_version} and {context?.loader} are shown.
                 </p>
-                <Select value={versionId} onChange={(event) => void loadPlan(event.currentTarget.value)}>
+                <Select value={versionId} onChange={(event) => void loadPlan(event.currentTarget.value, modalProvider)}>
                     {versions.map((item, index) => (
                         <option value={item.id} key={item.id}>
                             {index === 0 ? 'Latest compatible - ' : ''}
@@ -393,6 +425,7 @@ const ModInstallerContainer = () => {
                                                 {item.project_name || item.filename}
                                             </p>
                                             <p css={tw`text-xs text-neutral-400`}>
+                                                {item.provider === 'curseforge' ? 'CurseForge' : 'Modrinth'} ·{' '}
                                                 {item.version_number || item.version_id} · Minecraft {item.game_version}{' '}
                                                 · {item.loader}
                                             </p>
@@ -443,13 +476,41 @@ const ModInstallerContainer = () => {
 
                     <ContentBox title={'Browse mods'} showLoadingOverlay={working}>
                         <p css={tw`text-xs text-neutral-400 mb-3`}>
-                            Modrinth · Minecraft {context.game_version} · {context.loader}
+                            {provider === 'curseforge' ? 'CurseForge' : 'Modrinth'} · Minecraft {context.game_version} ·{' '}
+                            {context.loader}
                         </p>
+                        {!context.provider_available && (
+                            <p css={tw`text-sm text-neutral-200 mb-4`}>{context.provider_unavailable_reason}</p>
+                        )}
+                        {provider === 'curseforge' && context.provider_available && (
+                            <p css={tw`text-xs text-neutral-400 mb-3`}>
+                                CurseForge does not identify every client-only mod. Check that a mod supports dedicated
+                                servers.
+                            </p>
+                        )}
                         <div css={tw`grid grid-cols-1 md:grid-cols-4 gap-3`}>
+                            <div>
+                                <label css={tw`block text-xs uppercase text-neutral-400 mb-1`}>Provider</label>
+                                <Select
+                                    aria-label={'Provider'}
+                                    value={provider}
+                                    disabled={working}
+                                    onChange={(event) => setProvider(event.currentTarget.value as ModProvider)}
+                                >
+                                    {context.providers.map((item) => (
+                                        <option key={item.id} value={item.id}>
+                                            {item.name}
+                                            {item.available ? '' : ' (unavailable)'}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </div>
                             <div>
                                 <label css={tw`block text-xs uppercase text-neutral-400 mb-1`}>Category</label>
                                 <Select
+                                    aria-label={'Category'}
                                     value={category}
+                                    disabled={!context.provider_available}
                                     onChange={(event) => {
                                         setCategory(event.currentTarget.value);
                                         setOffset(0);
@@ -457,26 +518,28 @@ const ModInstallerContainer = () => {
                                 >
                                     <option value={''}>All categories</option>
                                     {context.categories.map((item) => (
-                                        <option value={item} key={item}>
-                                            {item
-                                                .split('-')
-                                                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-                                                .join(' ')}
+                                        <option value={item.value} key={item.value}>
+                                            {item.label}
                                         </option>
                                     ))}
                                 </Select>
                             </div>
-                            <div css={tw`md:col-span-3`}>
+                            <div css={tw`md:col-span-2`}>
                                 <label css={tw`block text-xs uppercase text-neutral-400 mb-1`}>Search query</label>
                                 <div css={tw`flex gap-3`}>
                                     <Input
                                         value={query}
+                                        disabled={!context.provider_available}
                                         onChange={(event) => setQuery(event.currentTarget.value)}
                                         onKeyDown={(event) => event.key === 'Enter' && void runSearch(0)}
                                         placeholder={'Search mods or leave blank for popular mods'}
                                         maxLength={100}
                                     />
-                                    <Button type={'button'} onClick={() => void runSearch(0)} disabled={working}>
+                                    <Button
+                                        type={'button'}
+                                        onClick={() => void runSearch(0)}
+                                        disabled={working || !context.provider_available}
+                                    >
                                         Search
                                     </Button>
                                 </div>
@@ -517,7 +580,7 @@ const ModInstallerContainer = () => {
                                 type={'button'}
                                 size={'xsmall'}
                                 color={'grey'}
-                                disabled={offset === 0 || working}
+                                disabled={offset === 0 || working || !context.provider_available}
                                 onClick={() => void runSearch(Math.max(0, offset - limit))}
                             >
                                 Previous
@@ -529,7 +592,7 @@ const ModInstallerContainer = () => {
                                 type={'button'}
                                 size={'xsmall'}
                                 color={'grey'}
-                                disabled={offset + limit >= total || working}
+                                disabled={offset + limit >= total || working || !context.provider_available}
                                 onClick={() => void runSearch(offset + limit)}
                             >
                                 Next

@@ -170,7 +170,7 @@ class ProcessModpackOperationJob implements ShouldQueue
                 $payload['preserved_paths'] = $this->cleanFilesIfRequested($repository, $payload, $operation->uuid);
                 $operation->forceFill(['payload' => $payload])->save();
                 $server = $runtime->switchToInstaller($server);
-                $reinstall->handle($server);
+                $reinstall->handle($server, true);
                 $this->release(10);
 
                 return;
@@ -211,7 +211,7 @@ class ProcessModpackOperationJob implements ShouldQueue
                 if (($payload['release']['install_mode'] ?? null) === 'modrinth') {
                     $payload['phase'] = 'wait_runtime';
                     $operation->forceFill(['payload' => $payload])->save();
-                    $reinstall->handle($server);
+                    $reinstall->handle($server, true);
                     $this->release(10);
 
                     return;
@@ -341,7 +341,7 @@ class ProcessModpackOperationJob implements ShouldQueue
             ];
             $operation->forceFill(['payload' => $payload])->save();
             $server = $runtime->switchToCurseForge($server, $payload['release']);
-            $reinstall->handle($server);
+            $reinstall->handle($server, true);
             $this->release(10);
 
             return;

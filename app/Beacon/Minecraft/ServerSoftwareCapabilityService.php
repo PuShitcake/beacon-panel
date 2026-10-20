@@ -5,11 +5,16 @@ namespace Pterodactyl\Beacon\Minecraft;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Models\BeaconServerMetadata;
 use Pterodactyl\Models\BeaconModpackInstallation;
+use Pterodactyl\Beacon\Modpacks\NativeCurseForgeContentRuntimeResolver;
 
 class ServerSoftwareCapabilityService
 {
     private const MOD_LOADERS = ['forge', 'fabric', 'neoforge', 'quilt'];
     private const CONFIGURATION_SOFTWARE = ['vanilla', 'paper', 'forge', 'fabric', 'neoforge', 'quilt', 'curseforge'];
+
+    public function __construct(private NativeCurseForgeContentRuntimeResolver $native)
+    {
+    }
 
     /**
      * Resolve the customer-facing Minecraft software and the installers it is allowed to use.
@@ -33,6 +38,15 @@ class ServerSoftwareCapabilityService
         $server->loadMissing('egg.nest');
         if ($server->egg?->nest?->name !== config('beacon.modpacks.nest.name', 'Beacon')) {
             return $this->capabilities('unknown');
+        }
+
+        $native = $this->native->resolve($server);
+        if ($native !== null) {
+            if ($native['runtime'] !== null) {
+                return $this->capabilities($native['runtime']['loader'], true);
+            }
+
+            return array_replace($this->capabilities('curseforge'), ['mod_unavailable_reason' => $native['reason']]);
         }
 
         $installation = BeaconModpackInstallation::query()
