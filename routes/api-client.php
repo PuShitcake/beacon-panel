@@ -73,25 +73,32 @@ Route::group([
     Route::get('/beacon/configuration', [Client\Servers\BeaconConfigurationController::class, 'show']);
     Route::put('/beacon/configuration', [Client\Servers\BeaconConfigurationController::class, 'update']);
 
-    Route::group([
-        'prefix' => '/beacon/content',
-        'middleware' => RequireBeaconRequestMetadata::class,
-    ], function () {
+    // Read-only compatibility for already-dispatched legacy content jobs. No old installer mutations.
+    Route::get('/beacon/content/operations/{operationUuid}', [Client\Servers\BeaconContentController::class, 'operation'])
+        ->middleware('throttle:api.beacon.poll')->name('api:beacon.content.operation');
+
+    Route::group(['prefix' => '/beacon/plugins'], function () {
         Route::middleware('throttle:api.beacon.content')->group(function () {
-            Route::get('/context', [Client\Servers\BeaconContentController::class, 'context']);
-            Route::get('/installations', [Client\Servers\BeaconContentController::class, 'index']);
-            Route::get('/search', [Client\Servers\BeaconContentController::class, 'search']);
-            Route::get('/projects/{projectId}/versions', [Client\Servers\BeaconContentController::class, 'versions']);
-            Route::get('/plan', [Client\Servers\BeaconContentController::class, 'plan']);
-            Route::post('/install', [Client\Servers\BeaconContentController::class, 'install'])
-                ->name('api:beacon.content.install');
-            Route::delete('/installations/{installationId}', [Client\Servers\BeaconContentController::class, 'remove'])
-                ->name('api:beacon.content.uninstall');
+            Route::get('/context', [Client\Servers\BeaconPluginController::class, 'context'])
+                ->name('api:beacon.plugins.context');
+            Route::get('/installations', [Client\Servers\BeaconPluginController::class, 'index']);
+            Route::get('/search', [Client\Servers\BeaconPluginController::class, 'search']);
+            Route::get('/projects/{projectId}/versions', [Client\Servers\BeaconPluginController::class, 'versions']);
+            Route::get('/plan', [Client\Servers\BeaconPluginController::class, 'plan']);
+            Route::get('/history', [Client\Servers\BeaconPluginController::class, 'history'])
+                ->name('api:beacon.plugins.history');
+
+            Route::middleware(RequireBeaconRequestMetadata::class)->group(function () {
+                Route::post('/install', [Client\Servers\BeaconPluginController::class, 'install']);
+                Route::post('/installations/{installationId}/update', [Client\Servers\BeaconPluginController::class, 'update']);
+                Route::post('/installations/{installationId}/reinstall', [Client\Servers\BeaconPluginController::class, 'reinstall']);
+                Route::delete('/installations/{installationId}', [Client\Servers\BeaconPluginController::class, 'uninstall']);
+            });
         });
 
-        Route::get('/operations/{operationUuid}', [Client\Servers\BeaconContentController::class, 'operation'])
+        Route::get('/operations/{operationUuid}', [Client\Servers\BeaconPluginController::class, 'operation'])
             ->middleware('throttle:api.beacon.poll')
-            ->name('api:beacon.content.operation');
+            ->name('api:beacon.plugins.operation');
     });
 
     Route::group(['prefix' => '/beacon/modpacks'], function () {

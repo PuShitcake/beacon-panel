@@ -10,7 +10,7 @@ use Pterodactyl\Beacon\Modpacks\NativeCurseForgeContentRuntimeResolver;
 class ServerSoftwareCapabilityService
 {
     private const MOD_LOADERS = ['forge', 'fabric', 'neoforge', 'quilt'];
-    private const CONFIGURATION_SOFTWARE = ['vanilla', 'paper', 'forge', 'fabric', 'neoforge', 'quilt', 'curseforge'];
+    private const CONFIGURATION_SOFTWARE = ['vanilla', 'paper', 'spigot', 'bukkit', 'forge', 'fabric', 'neoforge', 'quilt', 'curseforge'];
 
     public function __construct(private NativeCurseForgeContentRuntimeResolver $native)
     {
@@ -74,7 +74,7 @@ class ServerSoftwareCapabilityService
 
     private function softwareFromEgg(string $name): string
     {
-        return match (strtolower(trim($name))) {
+        return self::pluginPlatformFromEggName($name) ?? match (strtolower(trim($name))) {
             'vanilla minecraft' => 'vanilla',
             'paper', 'paper + geyser + floodgate' => 'paper',
             'forge minecraft' => 'forge',
@@ -86,11 +86,23 @@ class ServerSoftwareCapabilityService
         };
     }
 
+    public static function pluginPlatformFromEggName(string $name): ?string
+    {
+        return match (strtolower(trim($name))) {
+            'paper', 'paper + geyser + floodgate', 'purpur' => 'paper',
+            'spigot' => 'spigot',
+            'bukkit', 'craftbukkit' => 'bukkit',
+            default => null,
+        };
+    }
+
     private function capabilities(string $software, bool $managedModpack = false): array
     {
         $name = match ($software) {
             'vanilla' => 'Minecraft Vanilla',
             'paper' => 'Paper',
+            'spigot' => 'Spigot',
+            'bukkit' => 'Bukkit',
             'forge' => 'Forge',
             'fabric' => 'Fabric',
             'neoforge' => 'NeoForge',
@@ -99,7 +111,7 @@ class ServerSoftwareCapabilityService
             'modrinth' => 'Minecraft Modrinth',
             default => 'Unsupported software',
         };
-        $plugins = $software === 'paper';
+        $plugins = in_array($software, ['paper', 'spigot', 'bukkit'], true);
         $mods = $software === 'forge';
         $modpacks = $managedModpack || $software === 'curseforge';
         $configuration = in_array($software, self::CONFIGURATION_SOFTWARE, true);
@@ -122,7 +134,7 @@ class ServerSoftwareCapabilityService
             'modpack_providers' => $modpackProviders,
             'plugin_unavailable_reason' => $plugins
                 ? null
-                : "This server is currently using {$name}. Plugins are only available for Paper servers.",
+                : "This server is currently using {$name}. Plugins require a Bukkit/Paper-compatible server.",
             'mod_unavailable_reason' => $mods ? null : $modUnavailableReason,
             'modpack_unavailable_reason' => $modpacks
                 ? null

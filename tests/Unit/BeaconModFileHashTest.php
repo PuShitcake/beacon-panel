@@ -38,6 +38,7 @@ class BeaconModFileHashTest extends TestCase
         $result = $this->repository($response)->getFileHashes('/.beacon/stage/mod.jar', strlen($content));
         $this->assertSame(strlen($content), $result['size']);
         $this->assertSame(hash('sha1', $content), $result['sha1']);
+        $this->assertSame(hash('sha256', $content), $result['sha256']);
         $this->assertSame(hash('sha512', $content), $result['sha512']);
         $this->assertFalse($response->getBody()->isReadable());
     }

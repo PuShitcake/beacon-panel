@@ -41,6 +41,12 @@ class ReinstallServerService
         }
 
         return $this->connection->transaction(function () use ($server) {
+            Server::query()->whereKey($server->id)->lockForUpdate()->firstOrFail();
+            if (\Pterodactyl\Models\BeaconOperation::query()->where('server_id', $server->id)
+                ->where('type', 'like', 'plugin.%')
+                ->whereIn('status', ['pending', 'running'])->exists()) {
+                throw new DisplayException('Wait for the active plugin operation before reinstalling this server.');
+            }
             $server->fill(['status' => Server::STATUS_INSTALLING])->save();
 
             $this->daemonServerRepository->setServer($server)->reinstall();

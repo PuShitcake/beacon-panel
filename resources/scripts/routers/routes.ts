@@ -13,7 +13,7 @@ import AccountApiContainer from '@/components/dashboard/AccountApiContainer';
 import AccountSSHContainer from '@/components/dashboard/ssh/AccountSSHContainer';
 import ActivityLogContainer from '@/components/dashboard/activity/ActivityLogContainer';
 import ServerActivityLogContainer from '@/components/server/ServerActivityLogContainer';
-import ContentContainer from '@/components/server/beacon/ContentContainer';
+import PluginInstallerContainer from '@/components/server/beacon/PluginInstallerContainer';
 import ConfigurationContainer from '@/components/server/beacon/ConfigurationContainer';
 import ModInstallerContainer from '@/components/server/beacon/ModInstallerContainer';
 
@@ -86,11 +86,11 @@ export default {
             component: FileManagerContainer,
         },
         {
-            path: '/content',
-            permission: 'file.*',
-            beaconCapability: 'plugins',
+            path: '/plugins',
+            permission: null,
+            ownerOnly: true,
             name: 'Plugin Installer',
-            component: ContentContainer,
+            component: PluginInstallerContainer,
         },
         {
             path: '/mods',

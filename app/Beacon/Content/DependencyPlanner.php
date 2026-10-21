@@ -77,6 +77,7 @@ class DependencyPlanner
             'size' => $file['size'],
             'sha512' => $file['sha512'],
             ...(isset($file['sha1']) ? ['sha1' => $file['sha1']] : []),
+            ...(isset($file['sha256']) ? ['sha256' => $file['sha256']] : []),
             'dependency' => $depth > 0,
         ];
 

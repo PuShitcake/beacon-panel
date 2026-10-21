@@ -120,6 +120,11 @@ return [
             'worldgen',
         ],
     ],
+    'plugins' => [
+        'enabled' => true,
+        'power_transition_timeout_seconds' => 120,
+        'categories' => ['decoration', 'economy', 'equipment', 'food', 'game-mechanics', 'library', 'magic', 'management', 'minigame', 'mobs', 'optimization', 'social', 'storage', 'transportation', 'utility', 'worldgen'],
+    ],
     'content' => [
         'max_file_bytes' => (int) env('BEACON_CONTENT_MAX_FILE_BYTES', 268435456),
         'max_total_bytes' => (int) env('BEACON_CONTENT_MAX_TOTAL_BYTES', 536870912),

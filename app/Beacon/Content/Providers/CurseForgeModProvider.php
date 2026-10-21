@@ -12,6 +12,12 @@ use Pterodactyl\Beacon\Content\Exceptions\ProviderResponseException;
 /** Individual Minecraft mods only. Never uses modpack files or an unofficial download proxy. */
 class CurseForgeModProvider implements ContentProvider
 {
+    protected const CLASS_ID = 6;
+    protected const PROJECT_TYPE = 'mod';
+    protected const LOADERS = ['forge'];
+    protected const FILE_LOADER = 'Forge';
+    protected const MOD_LOADER_TYPE = 1;
+
     public function isConfigured(): bool
     {
         $key = config('beacon.modpacks.providers.curseforge.api_key');
@@ -21,10 +27,10 @@ class CurseForgeModProvider implements ContentProvider
 
     public function categories(): array
     {
-        $response = $this->get('/categories', ['gameId' => 432, 'classId' => 6]);
+        $response = $this->get('/categories', ['gameId' => 432, 'classId' => static::CLASS_ID]);
 
         return collect($this->list($response))->filter(fn ($category) => is_array($category)
-            && ($category['gameId'] ?? null) === 432 && ($category['classId'] ?? null) === 6
+            && ($category['gameId'] ?? null) === 432 && ($category['classId'] ?? null) === static::CLASS_ID
             && ($category['isClass'] ?? false) === false)
             ->map(fn (array $category) => ['value' => $this->id($category['id'] ?? null), 'label' => $this->string($category, 'name')])
             ->sortBy('label')->values()->all();
@@ -33,7 +39,7 @@ class CurseForgeModProvider implements ContentProvider
     public function search(string $query, string $gameVersion, string $loader, string $projectType, int $offset = 0, ?string $category = null): array
     {
         $this->assertForge($loader, $projectType);
-        $params = ['gameId' => 432, 'classId' => 6, 'gameVersion' => $gameVersion, 'modLoaderType' => 1,
+        $params = ['gameId' => 432, 'classId' => static::CLASS_ID, 'gameVersion' => $gameVersion, ... (static::MOD_LOADER_TYPE === null ? [] : ['modLoaderType' => static::MOD_LOADER_TYPE]),
             'searchFilter' => trim($query), 'index' => min(9980, max(0, $offset)), 'pageSize' => 20, 'sortField' => 6, 'sortOrder' => 'desc'];
         if ($category !== null) {
             if (!in_array($category, array_column($this->categories(), 'value'), true)) {
@@ -58,14 +64,14 @@ class CurseForgeModProvider implements ContentProvider
 
     public function versions(string $projectId, string $gameVersion, string $loader): array
     {
-        $this->assertForge($loader, 'mod');
+        $this->assertForge($loader, static::PROJECT_TYPE);
         $projectId = $this->id($projectId);
         $project = $this->project($projectId);
-        $response = $this->get('/mods/' . $projectId . '/files', ['gameVersion' => $gameVersion, 'modLoaderType' => 1, 'pageSize' => 50]);
+        $response = $this->get('/mods/' . $projectId . '/files', ['gameVersion' => $gameVersion, ... (static::MOD_LOADER_TYPE === null ? [] : ['modLoaderType' => static::MOD_LOADER_TYPE]), 'pageSize' => 50]);
 
         return collect($this->list($response))
             ->filter(fn ($file) => is_array($file) && is_array($file['gameVersions'] ?? null) && in_array($gameVersion, $file['gameVersions'], true)
-                && in_array('Forge', $file['gameVersions'] ?? [], true) && is_string($file['downloadUrl'] ?? null))
+                && (static::FILE_LOADER === null || in_array(static::FILE_LOADER, $file['gameVersions'] ?? [], true)) && is_string($file['downloadUrl'] ?? null))
             ->map(fn (array $file) => $this->normalize($file, $project))
             ->sortByDesc('published_at')->values()->all();
     }
@@ -147,7 +153,7 @@ class CurseForgeModProvider implements ContentProvider
 
     private function availableMod(mixed $project): bool
     {
-        return is_array($project) && ($project['gameId'] ?? null) === 432 && ($project['classId'] ?? null) === 6
+        return is_array($project) && ($project['gameId'] ?? null) === 432 && ($project['classId'] ?? null) === static::CLASS_ID
             && ($project['isAvailable'] ?? false) === true && ($project['allowModDistribution'] ?? null) !== false;
     }
 
@@ -159,7 +165,7 @@ class CurseForgeModProvider implements ContentProvider
             throw new ProviderResponseException('The selected CurseForge file is unavailable or does not belong to this mod.');
         }
         $tags = $file['gameVersions'] ?? [];
-        if (!is_array($tags) || !in_array('Forge', $tags, true)) {
+        if (!is_array($tags) || (static::FILE_LOADER !== null && !in_array(static::FILE_LOADER, $tags, true))) {
             throw new ProviderResponseException('The selected CurseForge mod file does not support Forge.');
         }
         $filename = $this->string($file, 'fileName');
@@ -190,13 +196,13 @@ class CurseForgeModProvider implements ContentProvider
         }
 
         return ['id' => $projectId . ':' . $this->id($file['id'] ?? null), 'project_id' => $projectId,
-            'project_name' => $this->string($project, 'name'), 'project_type' => 'mod', 'icon_url' => $this->image(data_get($project, 'logo.thumbnailUrl')),
+            'project_name' => $this->string($project, 'name'), 'project_type' => static::PROJECT_TYPE, 'icon_url' => $this->image(data_get($project, 'logo.thumbnailUrl')),
             'server_side' => 'unknown', 'name' => $this->string($file, 'displayName'), 'version_number' => $filename,
             'version_type' => match ($file['releaseType'] ?? null) {
                 1 => 'release', 2 => 'beta', 3 => 'alpha', default => throw new ProviderResponseException('CurseForge returned an invalid release type.'),
             },
             'published_at' => $this->string($file, 'fileDate'), 'game_versions' => array_values(array_filter($tags, 'is_string')),
-            'loaders' => ['forge'], 'dependencies' => $dependencies,
+            'loaders' => static::LOADERS, 'dependencies' => $dependencies,
             'file' => ['url' => $this->download($file['downloadUrl'] ?? null), 'filename' => $filename, 'size' => $size, 'sha512' => null, 'sha1' => strtolower($sha1)]];
     }
 
@@ -254,7 +260,7 @@ class CurseForgeModProvider implements ContentProvider
 
     private function assertForge(string $loader, string $type): void
     {
-        if ($loader !== 'forge' || $type !== 'mod') {
+        if (!in_array($loader, static::LOADERS, true) || $type !== static::PROJECT_TYPE) {
             throw new ProviderResponseException('The CurseForge Mod Installer supports Forge mods only.');
         }
     }

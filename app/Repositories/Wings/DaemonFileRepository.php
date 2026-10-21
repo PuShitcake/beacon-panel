@@ -39,6 +39,7 @@ class DaemonFileRepository extends DaemonRepository
                 throw new FileSizeTooLargeException();
             }
             $sha1 = hash_init('sha1');
+            $sha256 = hash_init('sha256');
             $sha512 = hash_init('sha512');
             $size = 0;
             while (!$body->eof()) {
@@ -51,10 +52,11 @@ class DaemonFileRepository extends DaemonRepository
                     throw new \RuntimeException('The file verification stream stopped unexpectedly.');
                 }
                 hash_update($sha1, $chunk);
+                hash_update($sha256, $chunk);
                 hash_update($sha512, $chunk);
             }
 
-            return ['size' => $size, 'sha1' => hash_final($sha1), 'sha512' => hash_final($sha512)];
+            return ['size' => $size, 'sha1' => hash_final($sha1), 'sha256' => hash_final($sha256), 'sha512' => hash_final($sha512)];
         } finally {
             $body->close();
         }

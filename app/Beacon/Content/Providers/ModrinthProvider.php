@@ -25,8 +25,8 @@ class ModrinthProvider implements ContentProvider
         $facets = [[$typeFacet], ["versions:{$gameVersion}"], ["categories:{$loader}"]];
         if (!is_null($category)) {
             $category = trim(strtolower($category));
-            if ($projectType !== 'mod' || !in_array($category, config('beacon.mods.categories', []), true)) {
-                throw new ProviderResponseException('The selected mod category is not supported.');
+            if (!in_array($projectType, ['mod', 'plugin'], true) || !in_array($category, config('beacon.' . ($projectType === 'plugin' ? 'plugins' : 'mods') . '.categories', []), true)) {
+                throw new ProviderResponseException('The selected content category is not supported.');
             }
             $facets[] = ["categories:{$category}"];
         }

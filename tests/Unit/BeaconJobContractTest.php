@@ -19,6 +19,7 @@ class BeaconJobContractTest extends TestCase
             RemoveContentJob::class,
             ProcessModpackOperationJob::class,
             FinalizeNativeCurseForgeInstallationJob::class,
+            \Pterodactyl\Jobs\Beacon\ProcessPluginOperationJob::class,
         ] as $jobClass) {
             $job = new $jobClass(1);
 

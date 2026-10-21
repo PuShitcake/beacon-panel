@@ -232,6 +232,7 @@ class BeaconModController extends ClientApiController
                 ->where('server_id', $server->id)
                 ->where(function ($query) {
                     $query->where('type', 'like', 'mod.%')
+                        ->orWhere('type', 'like', 'plugin.%')
                         ->orWhere('type', 'native_modpack.runtime')
                         ->orWhere('type', 'like', 'content.%')
                         ->orWhere('type', 'like', 'modpack.%');

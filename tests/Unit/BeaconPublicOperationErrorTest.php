@@ -18,6 +18,7 @@ class BeaconPublicOperationErrorTest extends TestCase
         return [
             [ProcessModpackOperationJob::class, 'The modpack operation failed. Review the protected application logs.'],
             [ProcessModOperationJob::class, 'The mod operation failed. Review the protected application logs.'],
+            [\Pterodactyl\Jobs\Beacon\ProcessPluginOperationJob::class, 'The plugin operation failed. Review the protected application logs.'],
             [ProcessMinecraftServiceOperationJob::class, 'The Minecraft service operation failed. Review the protected application logs.'],
         ];
     }
