@@ -296,7 +296,10 @@
                     </div>
                 </div>
 
-                <div class="box-header with-border" style="margin-top:-10px;">
+            </div>
+
+            <div class="box">
+                <div class="box-header with-border">
                     <h3 class="box-title">Service Variables</h3>
                 </div>
 
