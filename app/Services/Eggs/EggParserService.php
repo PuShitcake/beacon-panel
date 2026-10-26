@@ -10,6 +10,10 @@ use Pterodactyl\Exceptions\Service\InvalidFileUploadException;
 
 class EggParserService
 {
+    private const VARIABLE_FIELDS = [
+        'name', 'description', 'env_variable', 'default_value', 'user_viewable', 'user_editable', 'rules',
+    ];
+
     /**
      * Takes an uploaded file and parses out the egg configuration from within.
      *
@@ -28,7 +32,19 @@ class EggParserService
             throw new InvalidFileUploadException('The JSON file provided is not in a format that can be recognized.');
         }
 
-        return $this->convertToV2($parsed);
+        $variables = $parsed['variables'] ?? [];
+        if (!is_array($variables) || array_filter($variables, fn ($variable) => !is_array($variable))) {
+            throw new InvalidFileUploadException('Egg variables must contain variable definitions.');
+        }
+        $parsed['variables'] = $variables;
+        $parsed = $this->convertToV2($parsed);
+
+        // Both importers persist variable attributes unguarded. Only native definition
+        // fields may reach them: newer exports can include sort/field_type metadata,
+        // and uploaded identifiers or ownership/timestamps must never be adopted.
+        $parsed['variables'] = array_map(fn (array $variable) => Arr::only($variable, self::VARIABLE_FIELDS), $parsed['variables']);
+
+        return $parsed;
     }
 
     /**
