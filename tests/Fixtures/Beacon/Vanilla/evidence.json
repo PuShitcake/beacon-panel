@@ -1,0 +1,1530 @@
+{
+  "1.2.5": {
+    "sha1": "d8321edc9470e56b8ad5c67bbd16beba25843336",
+    "size": 1408470,
+    "fixture_sha256": "95f1011b6516f84df156531e8fd2a51c6c0ad395fbc115b94a1d5ae3cf1058c7",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 143,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "net/minecraft/server/MinecraftServer",
+    "getter_only_properties": [],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.3.1": {
+    "sha1": "82563ce498bfc1fc8a2cb5bf236f7da86a390646",
+    "size": 1799890,
+    "fixture_sha256": "f10749f258eaa8b0415d403d2cea31449a4fecab1b2a87aacef9ce48383a43a6",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "fs",
+    "getter_only_properties": [],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.3.2": {
+    "sha1": "3de2ae6c488135596e073a9589842800c9f53bfe",
+    "size": 1801710,
+    "fixture_sha256": "994d7f7f57e3a4011d56bfa9bc626c3d8ec238450b38fe0138f0b80e94c716d2",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ft",
+    "getter_only_properties": [],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.4.2": {
+    "sha1": "5be700523a729bb78ef99206fb480a63dcd09825",
+    "size": 2018455,
+    "fixture_sha256": "a24b9f219779f698ebe6bbe08b0939cdcb38737e948f08db643fa8f15c85ab9e",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "hg",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.4.4": {
+    "sha1": "4215dcadb706508bf9d6d64209a0080b9cee9e71",
+    "size": 2047928,
+    "fixture_sha256": "79c7e0ce2d0cb5526e6c5ebd2a19261566d9e36c39ccd96613aa3f936d1660f4",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ho",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.4.5": {
+    "sha1": "c12fd88a8233d2c517dbc8196ba2ae855f4d36ea",
+    "size": 2047972,
+    "fixture_sha256": "224951fd5cb64132ca6e136d2284825bafb9dc3096e8da87005a6d1746041175",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ho",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.4.6": {
+    "sha1": "a0aeb5709af5f2c3058c1cf0dc6b110a7a61278c",
+    "size": 2061647,
+    "fixture_sha256": "af01c52620a2b8a942a5964fbaf07b0afff560a249ae212083c3af2429513f32",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ho",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.4.7": {
+    "sha1": "2f0ec8efddd2f2c674c77be9ddb370b727dec676",
+    "size": 2061638,
+    "fixture_sha256": "e696d5974875656bc9fd45c65f68c8c18da21c837f23c2be01db644984d1eab2",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 137,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ho",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.5.1": {
+    "sha1": "d07c71ee2767dabb79fb32dad8162e1b854d5324",
+    "size": 2360013,
+    "fixture_sha256": "563902938b803711604ad0949aa39e6b61240b7de39339e37e98812766ee65ac",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 137,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "hz",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.5.2": {
+    "sha1": "f9ae3f651319151ce99a0bfad6b34fa16eb6775f",
+    "size": 2360903,
+    "fixture_sha256": "f90cdb6bfd92dc8b94575deee2962291f1e77fb7f0c78471c3f68b024725ea43",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 137,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "hz",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.6.1": {
+    "sha1": "0252918a5f9d47e3c6eb1dfec02134d1374a89b4",
+    "size": 6132004,
+    "fixture_sha256": "ef3f4a5977d8cda2a16fd60789da6581efa1e73bd43d6aec39568e5e45d8c535",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 143,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ip",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.6.2": {
+    "sha1": "01b6ea555c6978e6713e2a2dfd7fe19b1449ca54",
+    "size": 6134331,
+    "fixture_sha256": "f3512f6e65d8962119953a3699665d43aaf4cbb912665a56a3d771c525e8661b",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 143,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ir",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.6.4": {
+    "sha1": "050f93c1f3fe9e2052398f7bd6aca10c63d64a87",
+    "size": 6146738,
+    "fixture_sha256": "2f5f5e23e477ec0f94b4f26dcaa4316dadcfc6542e213d152bc61769d7866a82",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 137,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "is",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.7.2": {
+    "sha1": "3716cac82982e7c2eb09f83028b555e9ea606002",
+    "size": 9163955,
+    "fixture_sha256": "f65700efa6e6be7e88c0ceece6f5c9a1f2bff994afd7ce6dafaddb7ae4aa0521",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "lj",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": "throw above 15"
+  },
+  "1.7.3": {
+    "sha1": "707857a7bc7bf54fe60d557cca71004c34aa07bb",
+    "size": 9170432,
+    "fixture_sha256": "c885f382f6b7f861df4d81db3d8719be313541d68d906502f7a33b0ce3e30b9d",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "lm",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "mj",
+      "method": "a",
+      "min": 3,
+      "max": 20
+    }
+  },
+  "1.7.4": {
+    "sha1": "61220311cef80aecc4cd8afecd5f18ca6b9461ff",
+    "size": 9170551,
+    "fixture_sha256": "0184046efacbc2e7b6109943bdc86d4471a10e6bb8a28558288470810135fc13",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "lm",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "mj",
+      "method": "a",
+      "min": 3,
+      "max": 20
+    }
+  },
+  "1.7.5": {
+    "sha1": "e1d557b2e31ea881404e41b05ec15c810415e060",
+    "size": 9173673,
+    "fixture_sha256": "bd5cc025c3ca52aee5a02d2918c32c8096504186539eca3df6734741e27ec0a3",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ls",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "mp",
+      "method": "a",
+      "min": 3,
+      "max": 20
+    }
+  },
+  "1.7.6": {
+    "sha1": "41ea7757d4d7f74b95fc1ac20f919a8e521e910c",
+    "size": 9482170,
+    "fixture_sha256": "e92e01385b5658b66beb012c8cee32c22e4674c0e0a4589ce35d69acebfda9fd",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ls",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "mp",
+      "method": "a",
+      "min": 3,
+      "max": 20
+    }
+  },
+  "1.7.7": {
+    "sha1": "a6ffc1624da980986c6cc12a1ddc79ab1b025c62",
+    "size": 9482631,
+    "fixture_sha256": "75dd9545e8182a70b1fa3b39e5cf3505105629337ea811504f5e258a7989505e",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ls",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "mp",
+      "method": "a",
+      "min": 3,
+      "max": 20
+    }
+  },
+  "1.7.8": {
+    "sha1": "c69ebfb84c2577661770371c4accdd5f87b8b21d",
+    "size": 9606088,
+    "fixture_sha256": "f111eae0230b38f3ebd26a8c72e453abb1543e08fceceee6c3ab920e1f3c6a8e",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ls",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "mp",
+      "method": "a",
+      "min": 3,
+      "max": 20
+    }
+  },
+  "1.7.9": {
+    "sha1": "4cec86a928ec171fdc0c6b40de2de102f21601b5",
+    "size": 9604581,
+    "fixture_sha256": "377cf97585b8aa737c9b80a1003a8081354092095eec9fef31ad0b96a0a452a3",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ls",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "mp",
+      "method": "a",
+      "min": 3,
+      "max": 20
+    }
+  },
+  "1.7.10": {
+    "sha1": "952438ac4e01b4d115c5fc38f891710c4941df29",
+    "size": 9605030,
+    "fixture_sha256": "718183d730bab4e1ad75146c7fa3412ac7f87465be15b75e927c6a9b10daaf3d",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "lt",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "mq",
+      "method": "a",
+      "min": 3,
+      "max": 20
+    }
+  },
+  "1.8": {
+    "sha1": "a028f00e678ee5c6aef0e29656dca091b5df11c7",
+    "size": 10375504,
+    "fixture_sha256": "409f16a20599627f3af2ba1fc10b72284ed87d62c899e4078d46ca1063da5a7c",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "po",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "qq",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.8.1": {
+    "sha1": "68bfb524888f7c0ab939025e07e5de08843dac0f",
+    "size": 7903505,
+    "fixture_sha256": "138b47e1bc07fe5c6cf92c1b6efbcea88d4f193ed1246db7fcdfc62e2a6dd820",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "pp",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "qr",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.8.2": {
+    "sha1": "a37bdd5210137354ed1bfe3dac0a5b77fe08fe2e",
+    "size": 9778127,
+    "fixture_sha256": "a07a00d862c75d089ca52dd7f2dc9c13b8f925d44d3acb338c3cd73ecea9def8",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "kp",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "ld",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.8.3": {
+    "sha1": "163ba351cb86f6390450bb2a67fafeb92b6c0f2f",
+    "size": 9778206,
+    "fixture_sha256": "3e6fc43ced0561fa3a85bf1a9b07cbe24c7161768e5ca90ee1b7fe5b7a226bd8",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "kp",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "ld",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.8.4": {
+    "sha1": "dd4b5eba1c79500390e0b0f45162fa70d38f8a3d",
+    "size": 9779346,
+    "fixture_sha256": "b893142204fbeb0cf127c9387b626685346f4defecacd56e7cf5221417c36935",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ko",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "lc",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.8.5": {
+    "sha1": "ea6dd23658b167dbc0877015d1072cac21ab6eee",
+    "size": 9781878,
+    "fixture_sha256": "a46c798e1aa5521f1e4643800b7b88da06f4b822d43199b162c99c353e075c0a",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ko",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "lc",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.8.6": {
+    "sha1": "2bd44b53198f143fb278f8bec3a505dad0beacd2",
+    "size": 9780573,
+    "fixture_sha256": "ab6f4199c2da41b275201b2ee7891411a717e1e8d5834e31525e76e9e8734f2b",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ko",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "lc",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.8.7": {
+    "sha1": "35c59e16d1f3b751cd20b76b9b8a19045de363a9",
+    "size": 9780646,
+    "fixture_sha256": "ec36588ea1efb580f25ea3a21f15824e638ca9e712d627004e12cb33333b2217",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ko",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "lc",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.8.8": {
+    "sha1": "5fafba3f58c40dc51b5c3ca72a98f62dfdae1db7",
+    "size": 8322852,
+    "fixture_sha256": "fc9997dfa2d711a988eb94f56e2380d4ee1ea6a3520dda1142408ede2773c651",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ko",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "lc",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.8.9": {
+    "sha1": "b58b2ceb36e01bcd8dbf49c8fb66c55a9f0676cd",
+    "size": 8320755,
+    "fixture_sha256": "7c319fafb65d562c946ac6c2a03a37d8ffa5347bfb079ea8d50cd00c667a4bc4",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ko",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "lc",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.9": {
+    "sha1": "b4d449cf2918e0f3bd8aa18954b916a4d1880f0d",
+    "size": 8848015,
+    "fixture_sha256": "8522e832f16a78df4ed943e4c44b5a1dfd45f749830e3bd5df6f7dab6acaa2db",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "la",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "lv",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.9.1": {
+    "sha1": "bf95d9118d9b4b827f524c878efd275125b56181",
+    "size": 8848010,
+    "fixture_sha256": "ad762434ca758618017a1310a5fd9ca948d97f42de6a7a7aae82989f088cdfd6",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "la",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "lv",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.9.2": {
+    "sha1": "2b95cc7b136017e064c46d04a5825fe4cfa1be30",
+    "size": 8848002,
+    "fixture_sha256": "4b6c3e5e293a60479a4524024248d24e68a524115780a321c74b3b20f16c8b09",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "la",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "lv",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.9.3": {
+    "sha1": "8e897b6b6d784f745332644f4d104f7a6e737ccf",
+    "size": 9399056,
+    "fixture_sha256": "66a0185ff811462db987e36aa4ed266edf04bbc79b22f02a63ce3bb1e7c3229a",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "lb",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "lw",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.9.4": {
+    "sha1": "edbb7b1758af33d365bf835eb9d13de005b1e274",
+    "size": 9399053,
+    "fixture_sha256": "fbe67b447f3e1c47b9918fbb0406df458419f528001f8d6f7e5ddf00b8275692",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "lb",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "lw",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.10": {
+    "sha1": "a96617ffdf5dabbb718ab11a9a68e50545fc5bee",
+    "size": 9459395,
+    "fixture_sha256": "abcee3f009c94a3324f9b3329bc10460207b92bc0a93b6696420efa97bb505e1",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ld",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "ly",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.10.1": {
+    "sha1": "cb4c6f9f51a845b09a8861cdbe0eea3ff6996dee",
+    "size": 9459770,
+    "fixture_sha256": "29e4641ef32ac4b00eb6ad68515261c0093cbb21e963889e4ed5e4fd6294c263",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ld",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "ly",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.10.2": {
+    "sha1": "3d501b23df53c548254f5e3f66492d178a48db63",
+    "size": 9459897,
+    "fixture_sha256": "b10e3621121b589a40c023b412bc5255b8d731c3d689fb2a99af7e7c7b4e1d80",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "ld",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "ly",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.11": {
+    "sha1": "48820c84cb1ed502cb5b2fe23b8153d5e4fa61c0",
+    "size": 9713666,
+    "fixture_sha256": "67482a4d0bce4923b9b004ecdd4647db80ee02cbb7def1e38e3a2a8ea5cba3a5",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "lh",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "mc",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.11.1": {
+    "sha1": "1f97bd101e508d7b52b3d6a7879223b000b5eba0",
+    "size": 9720769,
+    "fixture_sha256": "4b38834adf9a5e24847189febc8583187ad847dc781af66a8b9d9b63d11abd5d",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "lh",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "mc",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.11.2": {
+    "sha1": "f00c294a1576e03fddcac777c3cf4c7d404c4ba4",
+    "size": 9720835,
+    "fixture_sha256": "33ad725653f8601dd09ccdc6ec545c280976aed7d2f552e378ef17dadfc4f25a",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "lh",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "mc",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.12": {
+    "sha1": "8494e844e911ea0d63878f64da9dcc21f53a3463",
+    "size": 30202458,
+    "fixture_sha256": "8a41978f963da37ddc171dfb257aa997f325e464522bb31e6ef00daa5e1cbe94",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "nx",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "os",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.12.1": {
+    "sha1": "561c7b2d54bae80cc06b05d950633a9ac95da816",
+    "size": 30221337,
+    "fixture_sha256": "b06dcb7f3ce7ba066c93e4286344eaf2a72ef6fa3251322dd03f70708890fad0",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "nz",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "ou",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.12.2": {
+    "sha1": "886945bfb2b978778c3a0288fd7fab09d315b25f",
+    "size": 30222121,
+    "fixture_sha256": "d9d11651c6bae5398e3e7084d642168846a8addc551134d1e5bf859e76e60f8e",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "nz",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "ou",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.13": {
+    "sha1": "d0caafb8438ebd206f99930cfaecfa6c9a13dca0",
+    "size": 32649675,
+    "fixture_sha256": "7362815da9f5e16229851b84cd5d78eb6f48e5e300f091eded32b9d4e75b785f",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 143,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "sn",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "tk",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.13.1": {
+    "sha1": "fe123682e9cb30031eae351764f653500b7396c9",
+    "size": 33832589,
+    "fixture_sha256": "65bf89acf7ce5d610d68bc8f45ffde16731790d3793525c241a856a4b9527b08",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "so",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "tl",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.13.2": {
+    "sha1": "3737db93722a9e39eeada7c27e7aca28b144ffa7",
+    "size": 33835116,
+    "fixture_sha256": "2c2f470a48f971c03fa411db5b71860d4c50d145de20edc01043d2ed2c57b4ad",
+    "generation": "isolated_network_none_full_boot_stop",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": true,
+    "properties_getter_class": "so",
+    "getter_only_properties": [
+      "spawn-protection"
+    ],
+    "view_radius_evidence": {
+      "owner": "tl",
+      "method": "a",
+      "min": 3,
+      "max": 32
+    }
+  },
+  "1.14": {
+    "sha1": "f1a0073671057f01aa843443fef34330281333ce",
+    "size": 35914001,
+    "fixture_sha256": "6e7fb7e8e634c02711d4d327798ed49b96bfb00edc258da5d350960879c023fd",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "uh",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.14.1": {
+    "sha1": "ed76d597a44c5266be2a7fcd77a8270f1f0bc118",
+    "size": 35927691,
+    "fixture_sha256": "2890514b486e2f5ebd3cd715ca569bc6876fd3637ce04543e72e762e8930b568",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "uh",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.14.2": {
+    "sha1": "808be3869e2ca6b62378f9f4b33c946621620019",
+    "size": 35932967,
+    "fixture_sha256": "d367cdd3946dd7f73bedad3e3db11d5eb9b5796791b62e7f3b75eb789595df38",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "uh",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.14.3": {
+    "sha1": "d0d0fe2b1dc6ab4c65554cb734270872b72dadd6",
+    "size": 35952401,
+    "fixture_sha256": "2b8e53b8fe67a781c0837999c4b30ad162803aeede2c58f74e34e9fa9c6a0991",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "uj",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.14.4": {
+    "sha1": "3dc3d84a581f14691199cf6831b71ed1296a9fdf",
+    "size": 35958734,
+    "fixture_sha256": "0ccd1821b51dd745ccdfe6e5ebdb11ba63549f4c7e3ad748c67aa4e10816c8dc",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "ul",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.15": {
+    "sha1": "e9f105b3c5c7e85c7b445249a93362a22f62442d",
+    "size": 36164465,
+    "fixture_sha256": "5a3a49612361e11fed344455e6a2cfae18e446205e33dca37e60f1485a65e6c1",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "we",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.15.1": {
+    "sha1": "4d1826eebac84847c71a77f9349cc22afd0cf0a1",
+    "size": 36164938,
+    "fixture_sha256": "e6d67cbd3fcf775b2e61d359763267ecc153578f3b9770cc25ba765186039d60",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "we",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.15.2": {
+    "sha1": "bb2b6b1aefcd70dfd1892149ac3a215f6c636b07",
+    "size": 36175593,
+    "fixture_sha256": "c66332504dd36fcd47c82860604173be500d44679f394007ca02dfd260d217f9",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "we",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.16": {
+    "sha1": "a0d03225615ba897619220e256a266cb33a44b6b",
+    "size": 37968865,
+    "fixture_sha256": "dae311ef5dccbaf334fe23132445f0eedb62de7e676855c016ad9ad9cd4628c9",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "ye",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.16.1": {
+    "sha1": "a412fd69db1f81db3f511c1463fd304675244077",
+    "size": 37968964,
+    "fixture_sha256": "3374149532fd04e927afa370470f6346a044e1d09b6f1d9466735a495db11f2e",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "ye",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.16.2": {
+    "sha1": "c5f6fb23c3876461d46ec380421e42b289789530",
+    "size": 37942337,
+    "fixture_sha256": "293d4d8c15d6c2585206034d8541cc0837ef397bdde806d37c8951b51748a87a",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "zh",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.16.3": {
+    "sha1": "f02f4473dbf152c23d7d484952121db0b36698cb",
+    "size": 37942656,
+    "fixture_sha256": "cbe6b484513297fffe5cafbd8cae01f54460f492a6649041d5f20178f61a468a",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "zh",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.16.4": {
+    "sha1": "35139deedbd5182953cf1caa23835da59ca3d7cd",
+    "size": 37961464,
+    "fixture_sha256": "446d43defa9bc7efb1441fa329040e535fea2180c6ed4c8d1a8113309b41454a",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "zh",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.16.5": {
+    "sha1": "1b557e7b033b583cd9f66746b7a9ab1ec1673ced",
+    "size": 37962360,
+    "fixture_sha256": "34117e36d296d42e3cb872829974a1b64f309c97fcaca9c08b7e0fdd725de023",
+    "generation": "initSettings",
+    "generator_java": 8,
+    "generator_exit": 0,
+    "reused_verified_fixture": true,
+    "isolated_done": false,
+    "properties_getter_class": "zh",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.17": {
+    "sha1": "0a269b5f2c5b93b1712d0f5dc43b6182b9ab254e",
+    "size": 43621201,
+    "fixture_sha256": "b92dac3de8d79a11dad47711587e3c8c992dc9f975fd7ee31dc21b356f7e59f7",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "aat",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.17.1": {
+    "sha1": "a16d67e5807f57fc4e550299cf20226194497dc2",
+    "size": 43626592,
+    "fixture_sha256": "fe822f1ee9cabec44bebbc184d0ec2a72117b3508ba82b2e2ba2a081c44e5123",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "aat",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.18": {
+    "sha1": "3cf24a8694aca6267883b17d934efacc5e44440d",
+    "size": 46323386,
+    "fixture_sha256": "c913b15b9de7a15d8031726fddbc473cd49f609c4e89d4f690566ed281cc825b",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "ack",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.18.1": {
+    "sha1": "125e5adf40c659fd3bce3e66e67a16bb49ecc1b9",
+    "size": 46324407,
+    "fixture_sha256": "8c52c98296f9d48f17b6593b18475792316672ff559f1d16a5eea6f6651bd2bf",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "ack",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.18.2": {
+    "sha1": "c8f83c5655308435b3dcf03c06d9fe8740a77469",
+    "size": 46592587,
+    "fixture_sha256": "3b36a35e248cb573dd8524b32b0a1e0fdaca0019a0cd3d83982ed488f30821d4",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "acy",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.19": {
+    "sha1": "e00c4052dac1d59a1188b2aa9d5a87113aaf1122",
+    "size": 45538778,
+    "fixture_sha256": "1f9d83cfd650fc1a43c839d7ab92b9b9b114d36e2015c71a41110b07fd5c5dfa",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "aeq",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.19.1": {
+    "sha1": "8399e1211e95faa421c1507b322dbeae86d604df",
+    "size": 45609936,
+    "fixture_sha256": "c07aef93453a7a2da901baecafb54197c4201ff14e1fce7fb254ae98431f6dbb",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "afi",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.19.2": {
+    "sha1": "f69c284232d7c7580bd89a5a4931c3581eae1378",
+    "size": 45609512,
+    "fixture_sha256": "f588252343a471c00665d98b64f3110a3af37c656bc697c0c80804298717adb5",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "afi",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.19.3": {
+    "sha1": "c9df48efed58511cdd0213c56b9013a7b5c9ac1f",
+    "size": 47162712,
+    "fixture_sha256": "f1aed9b9d5e02257703f7f975cdbce948e943279531af0f5b415a7ea9ebe6d7e",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "ago",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.19.4": {
+    "sha1": "8f3112a1049751cc472ec13e397eade5336ca7ae",
+    "size": 47515675,
+    "fixture_sha256": "465d9517b6a197b8282ee9c59eb7c192059f013e8c41c41e18acb81851cef34f",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "ahr",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.20": {
+    "sha1": "15c777e2cfe0556eef19aab534b186c0c6f277e1",
+    "size": 47787288,
+    "fixture_sha256": "651687fee0c4c5d6bce87606c2efade664a818824712cef9eac35658f69b2e86",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "ahf",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.20.1": {
+    "sha1": "84194a2f286ef7c14ed7ce0090dba59902951553",
+    "size": 47791053,
+    "fixture_sha256": "7a60175e5b31011dc6b284b8cfb1a4e6d3c168a3120788e499d0877991f553af",
+    "generation": "initSettings",
+    "generator_java": 25,
+    "generator_exit": 0,
+    "reused_verified_fixture": true,
+    "isolated_done": false,
+    "properties_getter_class": "ahf",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.20.2": {
+    "sha1": "5b868151bd02b41319f54c8d4061b8cae84e665c",
+    "size": 48285806,
+    "fixture_sha256": "31fb1be89b2821ea58dcd83e273dd6d5cacd7c516b54ee10159495e85914ed59",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "ajo",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.20.3": {
+    "sha1": "4fb536bfd4a83d61cdbaf684b8d311e66e7d4c49",
+    "size": 49152320,
+    "fixture_sha256": "cfa0c5f6942da72eb480596521e2fcd87f5fbcb8e5bc071f026cd7124bba284a",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "amb",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.20.4": {
+    "sha1": "8dd1a28015f51b1803213892b50b7b4fc76e594d",
+    "size": 49150256,
+    "fixture_sha256": "20858cb9c9ce77ee0e243b142e5788c0d9f2a8a1916de9c0a486a9e14a656d03",
+    "generation": "initSettings",
+    "generator_java": 17,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "amb",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.20.5": {
+    "sha1": "79493072f65e17243fd36a699c9a96b4381feb91",
+    "size": 51424012,
+    "fixture_sha256": "fd7fbcabf06b1740ffcfb60e4be2aead4a7113b06317b24e079c9567fc95fe5f",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "aqc",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.20.6": {
+    "sha1": "145ff0858209bcfc164859ba735d4199aafa1eea",
+    "size": 51420480,
+    "fixture_sha256": "f0c86f67d8f4dea7e5b6a3b960e5c214604bb68521cb95ba2ece3b846fc5e17a",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "aqc",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21": {
+    "sha1": "450698d1863ab5180c25d7c804ef0fe6369dd1ba",
+    "size": 51623779,
+    "fixture_sha256": "e1f67929de5affd4fec79fd7d471aa4f369f8389a69a19b8b09fd7a0df79c89f",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "apo",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21.1": {
+    "sha1": "59353fb40c36d304f2035d51e7d6e6baa98dc05c",
+    "size": 51627615,
+    "fixture_sha256": "bda5d547595230ab8e1ad31cbec3d9ee25bac99fff23049c27787f07a54215de",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "apo",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21.2": {
+    "sha1": "7bf95409b0d9b5388bfea3704ec92012d273c14c",
+    "size": 56120171,
+    "fixture_sha256": "79937e0ed3938132fc43064357614c6f319d2b790b5297c613d3e8802019bdf8",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "aqz",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21.3": {
+    "sha1": "45810d238246d90e811d896f87b14695b7fb6839",
+    "size": 56122038,
+    "fixture_sha256": "6240ebeaec3037dd7c6837414484aa340a953dee23d50ba6f0e9ca5638ea54ed",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "aqz",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21.4": {
+    "sha1": "4707d00eb834b446575d89a61a11b5d548d8c001",
+    "size": 56880250,
+    "fixture_sha256": "5fb5a7ab3ea0d1f7f5802a17d4f9ec04ebc448a15b8c2c715b0bfd7fbf047197",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "apv",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21.5": {
+    "sha1": "e6ec2f64e6080b9b5d9b471b291c33cc7f509733",
+    "size": 57269758,
+    "fixture_sha256": "c81a6ac67018a4876b44db648c1714ef81654ebede876ff7ebbd6f9cee33dee2",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "aqs",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21.6": {
+    "sha1": "6e64dcabba3c01a7271b4fa6bd898483b794c59b",
+    "size": 57554576,
+    "fixture_sha256": "a1b2fabf9905b5858743a7cb45020bee694a525f34896e72aff5401a3a7ebdd3",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "arj",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21.7": {
+    "sha1": "05e4b48fbc01f0385adb74bcff9751d34552486c",
+    "size": 57556704,
+    "fixture_sha256": "c1065d9e00a66e3ece3ff352b027da3df44d036a59dea11b31ac34b41f5c5d46",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "arj",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21.8": {
+    "sha1": "6bce4ef400e4efaa63a13d5e6f6b500be969ef81",
+    "size": 57555044,
+    "fixture_sha256": "14de5ccd7618390822337e16813b5422c64322808eee3486938d144a572c45cf",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "arj",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21.9": {
+    "sha1": "11e54c2081420a4d49db3007e66c80a22579ff2a",
+    "size": 58638725,
+    "fixture_sha256": "a580c20d5a7f1b33fa8d57024d1ab440878e130776f0694c6dfea4e372adf36a",
+    "generation": "initSettings",
+    "generator_java": 25,
+    "generator_exit": 0,
+    "reused_verified_fixture": true,
+    "isolated_done": false,
+    "properties_getter_class": "arp",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21.10": {
+    "sha1": "95495a7f485eedd84ce928cef5e223b757d2f764",
+    "size": 58642415,
+    "fixture_sha256": "d2659ac19635c5450f968a4d10cfd69dc7cfcaf27ac86a22defd37505f2c8ad7",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "arp",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "1.21.11": {
+    "sha1": "64bb6d763bed0a9f1d632ec347938594144943ed",
+    "size": 56327581,
+    "fixture_sha256": "f9ac631c8d8039634baf23ee40944abb1a68bc4ebb2ff80304c14bc892ba813f",
+    "generation": "initSettings",
+    "generator_java": 21,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "arz",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "26.1": {
+    "sha1": "3872a7f07a1a595e651aef8b058dfc2bb3772f46",
+    "size": 60417588,
+    "fixture_sha256": "eab54cd99bbb67959812a3c56f614f6b04aff8e79cb6d312a6aede98f803b2d5",
+    "generation": "initSettings",
+    "generator_java": 25,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "net/minecraft/server/dedicated/DedicatedServerProperties",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "26.1.1": {
+    "sha1": "49c8195703ad0ba4f0a4efbccfd85a4a8ca57431",
+    "size": 60417481,
+    "fixture_sha256": "f97770448d02df5b4c71c14c6f43185fb496eae5e50ed1ac29f609235c93dc82",
+    "generation": "initSettings",
+    "generator_java": 25,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "net/minecraft/server/dedicated/DedicatedServerProperties",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "26.1.2": {
+    "sha1": "97ccd4c0ed3f81bbb7bfacddd1090b0c56f9bc51",
+    "size": 60417480,
+    "fixture_sha256": "decee7e5c53e1ea990cd66a2d509e7e6c8e750dcc92d871e33b12c16d4c062b1",
+    "generation": "initSettings",
+    "generator_java": 25,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "net/minecraft/server/dedicated/DedicatedServerProperties",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "26.2": {
+    "sha1": "823e2250d24b3ddac457a60c92a6a941943fcd6a",
+    "size": 60894273,
+    "fixture_sha256": "a203044ed18ed906ae1e3161f0f247529ff27292da48f624df10e3145813c92b",
+    "generation": "initSettings",
+    "generator_java": 25,
+    "generator_exit": 0,
+    "reused_verified_fixture": false,
+    "isolated_done": false,
+    "properties_getter_class": "net/minecraft/server/dedicated/DedicatedServerProperties",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  },
+  "26.3": {
+    "sha1": "33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c",
+    "size": 62294556,
+    "fixture_sha256": "dd0b0d142bc89122863c188526ec1930ae42d6f116d82a72305c4a69ee25fbe7",
+    "generation": "initSettings",
+    "generator_java": 25,
+    "generator_exit": 0,
+    "reused_verified_fixture": true,
+    "isolated_done": false,
+    "properties_getter_class": "net/minecraft/server/dedicated/DedicatedServerProperties",
+    "getter_only_properties": [],
+    "view_radius_evidence": "conservative modern UI policy: 3 to 32"
+  }
+}

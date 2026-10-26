@@ -92,6 +92,7 @@ services:
     volumes:
       - panel_var:/app/var
       - panel_logs:/app/storage/logs
+      - panel_configuration:/app/storage/app/private/beacon/configuration
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1/"]
       interval: 30s
@@ -102,3 +103,4 @@ services:
 volumes:
   panel_var:
   panel_logs:
+  panel_configuration:

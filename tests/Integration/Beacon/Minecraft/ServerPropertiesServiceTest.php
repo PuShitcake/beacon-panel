@@ -3,12 +3,12 @@
 namespace Pterodactyl\Tests\Integration\Beacon\Minecraft;
 
 use Pterodactyl\Models\Server;
-use Pterodactyl\Tests\Integration\IntegrationTestCase;
+use Pterodactyl\Tests\TestCase;
 use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Pterodactyl\Beacon\Minecraft\ServerPropertiesService;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
-class ServerPropertiesServiceTest extends IntegrationTestCase
+class ServerPropertiesServiceTest extends TestCase
 {
     public function testItOnlyUpdatesAllowlistedPropertiesAndPreservesUnknownLines(): void
     {

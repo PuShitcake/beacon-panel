@@ -9,6 +9,7 @@ use Pterodactyl\Models\BeaconOperation;
 use Pterodactyl\Models\BeaconModpackInstallation;
 use Pterodactyl\Beacon\Minecraft\ServerPropertiesService;
 use Pterodactyl\Repositories\Wings\DaemonServerRepository;
+use Pterodactyl\Beacon\Minecraft\MinecraftConfigurationAdapter;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
 use Pterodactyl\Beacon\Minecraft\ServerSoftwareCapabilityService;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -29,7 +30,10 @@ class BeaconConfigurationController extends ClientApiController
     {
         $this->ensureMinecraftServer($server);
 
-        return new JsonResponse(['data' => $this->properties->read($server)]);
+        $adapter = MinecraftConfigurationAdapter::serviceClass($server);
+        $properties = $adapter ? app($adapter) : $this->properties;
+
+        return new JsonResponse(['data' => $properties->read($server)]);
     }
 
     public function update(BeaconConfigurationWriteRequest $request, Server $server): JsonResponse
@@ -57,7 +61,10 @@ class BeaconConfigurationController extends ClientApiController
             }
         }
 
-        $data = $this->properties->update($server, $request->string('hash')->toString(), $request->validated('properties'));
+        $adapter = MinecraftConfigurationAdapter::serviceClass($server);
+        $data = $adapter
+            ? app($adapter)->update($server, $request->string('hash')->toString(), $request->validated('properties'), $request->string('runtime_hash')->toString(), $request->validated('world_backup_uuid'))
+            : $this->properties->update($server, $request->string('hash')->toString(), $request->validated('properties'));
         Activity::event('beacon:minecraft.configuration.update')
             ->actor($request->user())
             ->subject($server)
@@ -74,7 +81,7 @@ class BeaconConfigurationController extends ClientApiController
             throw new ConflictHttpException('Managed Minecraft configuration is only available for supported Beacon Minecraft servers.');
         }
 
-        if ($capabilities['software'] === 'curseforge'
+        if (MinecraftConfigurationAdapter::serviceClass($server) === null && $capabilities['software'] === 'curseforge'
             && !BeaconModpackInstallation::query()
                 ->where('server_id', $server->id)
                 ->where('status', 'installed')

@@ -39,6 +39,10 @@ class ServerSoftwareCapabilityService
         if ($server->egg?->nest?->name !== config('beacon.modpacks.nest.name', 'Beacon')) {
             return $this->capabilities('unknown');
         }
+        // Native Bedrock must never adopt stale Java/modpack metadata or gain Java installers.
+        if (BedrockConfigurationService::supports($server)) {
+            return array_replace($this->capabilities('bedrock'), ['configuration' => true]);
+        }
 
         $native = $this->native->resolve($server);
         if ($native !== null) {
@@ -99,6 +103,7 @@ class ServerSoftwareCapabilityService
     private function capabilities(string $software, bool $managedModpack = false): array
     {
         $name = match ($software) {
+            'bedrock' => 'Vanilla Bedrock',
             'vanilla' => 'Minecraft Vanilla',
             'paper' => 'Paper',
             'spigot' => 'Spigot',

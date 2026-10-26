@@ -8,7 +8,6 @@ use Pterodactyl\Models\BeaconModpackInstallation;
 use Pterodactyl\Tests\Integration\IntegrationTestCase;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Pterodactyl\Beacon\Minecraft\ServerSoftwareCapabilityService;
-use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Pterodactyl\Http\Controllers\Api\Client\Servers\BeaconConfigurationController;
 
 class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
@@ -128,13 +127,11 @@ class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
     {
         $server = $this->serverForEgg('CurseForge Generic');
         $controller = app(BeaconConfigurationController::class);
-        $method = new \ReflectionMethod($controller, 'ensureMinecraftServer');
-        $method->setAccessible(true);
-
-        $this->expectException(ConflictHttpException::class);
-        $this->expectExceptionMessage('Install a modpack before using Minecraft Configuration.');
-
-        $method->invoke($controller, $server);
+        $response = $controller->show(new \Pterodactyl\Http\Requests\Api\Client\Servers\BeaconConfigurationReadRequest(), $server);
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('waiting', $response->getData(true)['data']['state']);
+        $this->assertFalse($response->getData(true)['data']['editable']);
+        $this->assertStringContainsString('Install a modpack from Startup', $response->getData(true)['data']['unavailable_reason']);
     }
 
     private function serverForEgg(string $name): \Pterodactyl\Models\Server

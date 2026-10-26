@@ -98,6 +98,9 @@ php artisan migrate --seed --force
 ## Artisan runs as root during container startup and can recreate framework
 ## cache files. Hand runtime-owned paths back to the unprivileged web/queue
 ## user before supervisord starts those processes.
+mkdir -p /app/storage/app/private/beacon/configuration
+chown -R nginx:nginx /app/storage/app/private/beacon/configuration
+chmod 700 /app/storage/app/private/beacon/configuration
 chown -R nginx:nginx /app/bootstrap/cache /app/storage
 
 ## start cronjobs for the queue
