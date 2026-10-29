@@ -277,11 +277,7 @@ class CurseForgeConfigurationRuntimeTest extends TestCase
         $adapter = \Mockery::mock(CurseForgeConfigurationService::class);
         $adapter->expects('read')->twice()->andReturn(['state' => 'waiting', 'editable' => false]);
         $this->app->instance(CurseForgeConfigurationService::class, $adapter);
-        $controller = new \Pterodactyl\Http\Controllers\Api\Client\Servers\BeaconConfigurationController(
-            new \Pterodactyl\Beacon\Minecraft\ServerPropertiesService($files),
-            \Mockery::mock(DaemonServerRepository::class),
-            new \Pterodactyl\Beacon\Minecraft\ServerSoftwareCapabilityService(new NativeCurseForgeContentRuntimeResolver()),
-        );
+        $controller = app(\Pterodactyl\Http\Controllers\Api\Client\Servers\BeaconConfigurationController::class);
         foreach ([false, true] as $withoutPack) {
             if ($withoutPack) {
                 DB::table('beacon_operations')->delete();

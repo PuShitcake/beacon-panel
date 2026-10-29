@@ -8,6 +8,22 @@ use Illuminate\Validation\ValidationException;
 class VanillaPropertyPolicy
 {
     protected const RUNTIME = 'Vanilla';
+
+    // Types and safety bounds, never a template or defaults for missing file fields.
+    private const BASE_DEFINITIONS = [
+        'motd' => ['type' => 'string', 'label' => 'Message of the day'],
+        'max-players' => ['type' => 'integer', 'label' => 'Maximum players', 'min' => 1, 'max' => 1000],
+        'gamemode' => ['type' => 'select', 'label' => 'Default game mode', 'options' => ['survival', 'creative', 'adventure', 'spectator']],
+        'difficulty' => ['type' => 'select', 'label' => 'Difficulty', 'options' => ['peaceful', 'easy', 'normal', 'hard']],
+        'hardcore' => ['type' => 'boolean', 'label' => 'Hardcore'],
+        'pvp' => ['type' => 'boolean', 'label' => 'Player versus player'],
+        'online-mode' => ['type' => 'boolean', 'label' => 'Online authentication'],
+        'white-list' => ['type' => 'boolean', 'label' => 'Whitelist'],
+        'allow-flight' => ['type' => 'boolean', 'label' => 'Allow flight'],
+        'view-distance' => ['type' => 'integer', 'label' => 'View distance', 'min' => 2, 'max' => 32],
+        'simulation-distance' => ['type' => 'integer', 'label' => 'Simulation distance', 'min' => 2, 'max' => 32],
+        'spawn-protection' => ['type' => 'integer', 'label' => 'Spawn protection', 'min' => 0, 'max' => 1000],
+    ];
     // Semantic boundaries prevent stale keys from pretending to be supported settings.
     // These are not release templates and never supply missing fields or default values.
     private const INTRODUCED = [
@@ -28,7 +44,7 @@ class VanillaPropertyPolicy
         if (!$this->supports($version)) {
             return [];
         }
-        $definitions = ServerPropertiesService::DEFINITIONS + [
+        $definitions = self::BASE_DEFINITIONS + [
             'allow-nether' => ['type' => 'boolean', 'label' => 'Allow Nether'],
             'spawn-monsters' => ['type' => 'boolean', 'label' => 'Spawn monsters'],
             'enforce-whitelist' => ['type' => 'boolean', 'label' => 'Enforce whitelist'],

@@ -56,7 +56,7 @@ class ServerSoftwareCapabilityServiceTest extends IntegrationTestCase
             $this->assertFalse($capabilities['plugins']);
             $this->assertSame($loader === 'forge', $capabilities['mods']);
             $this->assertFalse($capabilities['modpacks']);
-            $this->assertTrue($capabilities['configuration']);
+            $this->assertSame($egg === 'Fabric', $capabilities['configuration']);
             $this->assertSame([], $capabilities['modpack_loaders']);
         }
     }

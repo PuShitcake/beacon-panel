@@ -387,7 +387,7 @@ class VanillaConfigurationTest extends TestCase
         }
     }
 
-    public function testNonVanillaRequestRetainsOriginalAllowlistAndReadPermission(): void
+    public function testUnsupportedRequestStillRequiresRuntimeHashAndNativeReadPermission(): void
     {
         DB::table('eggs')->update(['name' => 'Unsupported Custom Minecraft']);
         $request = \Pterodactyl\Http\Requests\Api\Client\Servers\BeaconConfigurationWriteRequest::create('/configuration', 'PUT');
@@ -397,8 +397,8 @@ class VanillaConfigurationTest extends TestCase
 
             return $route;
         });
-        $this->assertArrayNotHasKey('runtime_hash', $request->rules());
-        $this->assertStringStartsWith('required|array:motd,', $request->rules()['properties']);
+        $this->assertContains('required', $request->rules()['runtime_hash']);
+        $this->assertContains('array', $request->rules()['properties']);
         $this->assertSame(\Pterodactyl\Models\Permission::ACTION_FILE_READ_CONTENT, (new \Pterodactyl\Http\Requests\Api\Client\Servers\BeaconConfigurationReadRequest())->permission());
     }
 

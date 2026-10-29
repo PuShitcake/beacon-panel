@@ -10,7 +10,6 @@ use Pterodactyl\Beacon\Modpacks\NativeCurseForgeContentRuntimeResolver;
 class ServerSoftwareCapabilityService
 {
     private const MOD_LOADERS = ['forge', 'fabric', 'neoforge', 'quilt'];
-    private const CONFIGURATION_SOFTWARE = ['vanilla', 'paper', 'spigot', 'bukkit', 'forge', 'fabric', 'neoforge', 'quilt', 'curseforge'];
 
     public function __construct(private NativeCurseForgeContentRuntimeResolver $native)
     {
@@ -39,18 +38,21 @@ class ServerSoftwareCapabilityService
         if ($server->egg?->nest?->name !== config('beacon.modpacks.nest.name', 'Beacon')) {
             return $this->capabilities('unknown');
         }
+        // Navigation and direct API admission must use the same reviewed adapter list.
+        // A familiar software name or stale modpack metadata is not a configuration adapter.
+        $configuration = MinecraftConfigurationAdapter::serviceClass($server) !== null;
         // Native Bedrock must never adopt stale Java/modpack metadata or gain Java installers.
         if (BedrockConfigurationService::supports($server)) {
-            return array_replace($this->capabilities('bedrock'), ['configuration' => true]);
+            return $this->capabilities('bedrock', false, $configuration);
         }
 
         $native = $this->native->resolve($server);
         if ($native !== null) {
             if ($native['runtime'] !== null) {
-                return $this->capabilities($native['runtime']['loader'], true);
+                return $this->capabilities($native['runtime']['loader'], true, $configuration);
             }
 
-            return array_replace($this->capabilities('curseforge'), ['mod_unavailable_reason' => $native['reason']]);
+            return array_replace($this->capabilities('curseforge', false, $configuration), ['mod_unavailable_reason' => $native['reason']]);
         }
 
         $installation = BeaconModpackInstallation::query()
@@ -59,7 +61,7 @@ class ServerSoftwareCapabilityService
         if ($installation instanceof BeaconModpackInstallation) {
             $loader = strtolower($installation->loader);
             if (in_array($loader, self::MOD_LOADERS, true)) {
-                return $this->capabilities($loader, true);
+                return $this->capabilities($loader, true, $configuration);
             }
         }
 
@@ -70,10 +72,10 @@ class ServerSoftwareCapabilityService
         if ($metadata instanceof BeaconServerMetadata
             && $metadata->profile
             && $metadata->profile->egg_id === $server->egg_id) {
-            return $this->capabilities(strtolower($metadata->profile->loader));
+            return $this->capabilities(strtolower($metadata->profile->loader), false, $configuration);
         }
 
-        return $this->capabilities($this->softwareFromEgg($server->egg->name));
+        return $this->capabilities($this->softwareFromEgg($server->egg->name), false, $configuration);
     }
 
     private function softwareFromEgg(string $name): string
@@ -100,7 +102,7 @@ class ServerSoftwareCapabilityService
         };
     }
 
-    private function capabilities(string $software, bool $managedModpack = false): array
+    private function capabilities(string $software, bool $managedModpack = false, bool $configuration = false): array
     {
         $name = match ($software) {
             'bedrock' => 'Vanilla Bedrock',
@@ -119,7 +121,6 @@ class ServerSoftwareCapabilityService
         $plugins = in_array($software, ['paper', 'spigot', 'bukkit'], true);
         $mods = $software === 'forge';
         $modpacks = $managedModpack || $software === 'curseforge';
-        $configuration = in_array($software, self::CONFIGURATION_SOFTWARE, true);
         $modpackLoaders = $modpacks ? self::MOD_LOADERS : [];
         $modpackProviders = $modpacks ? ['curseforge'] : [];
 
