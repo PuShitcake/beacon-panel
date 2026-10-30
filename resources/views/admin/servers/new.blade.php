@@ -236,7 +236,7 @@
                         <select id="pNestId" name="nest_id" class="form-control">
                             @foreach($nests as $nest)
                                 <option value="{{ $nest->id }}"
-                                    @if($nest->id === old('nest_id'))
+                                    @if((string) $nest->id === (string) old('nest_id', $nests->firstWhere('name', config('beacon.modpacks.nest.name', 'Beacon'))?->id))
                                         selected="selected"
                                     @endif
                                 >{{ $nest->name }}</option>
