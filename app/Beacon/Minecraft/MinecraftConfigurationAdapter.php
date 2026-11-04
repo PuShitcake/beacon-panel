@@ -4,11 +4,15 @@ namespace Pterodactyl\Beacon\Minecraft;
 
 use Pterodactyl\Models\Server;
 
-/** Bedrock has its own parser and policy; Java routing remains unchanged. */
+/** Each file format has an explicit, reviewed adapter; no name-based fallback. */
 class MinecraftConfigurationAdapter
 {
     public static function serviceClass(Server $server): ?string
     {
+        if (VelocityConfigurationService::supports($server)) {
+            return VelocityConfigurationService::class;
+        }
+
         return BedrockConfigurationService::supports($server)
             ? BedrockConfigurationService::class : JavaConfigurationAdapter::serviceClass($server);
     }

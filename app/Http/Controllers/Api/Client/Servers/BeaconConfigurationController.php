@@ -5,8 +5,8 @@ namespace Pterodactyl\Http\Controllers\Api\Client\Servers;
 use Pterodactyl\Models\Server;
 use Illuminate\Http\JsonResponse;
 use Pterodactyl\Facades\Activity;
-use Pterodactyl\Beacon\Minecraft\VanillaConfigurationService;
 use Pterodactyl\Beacon\Minecraft\MinecraftConfigurationAdapter;
+use Pterodactyl\Beacon\Minecraft\MinecraftConfigurationService;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Pterodactyl\Http\Requests\Api\Client\Servers\BeaconConfigurationReadRequest;
@@ -33,7 +33,7 @@ class BeaconConfigurationController extends ClientApiController
         return new JsonResponse(['data' => $data]);
     }
 
-    private function configuration(Server $server): VanillaConfigurationService
+    private function configuration(Server $server): MinecraftConfigurationService
     {
         $adapter = MinecraftConfigurationAdapter::serviceClass($server);
         if ($adapter === null) {

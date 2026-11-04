@@ -25,7 +25,7 @@ export interface MinecraftConfiguration {
     unavailable_reason?: string | null;
     notes?: string[];
     state?: 'ready' | 'waiting' | 'unavailable';
-    source?: 'server.properties';
+    source?: 'server.properties' | 'velocity.toml';
     world_backup_name?: string;
 }
 

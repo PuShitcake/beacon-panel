@@ -41,6 +41,10 @@ class ServerSoftwareCapabilityService
         // Navigation and direct API admission must use the same reviewed adapter list.
         // A familiar software name or stale modpack metadata is not a configuration adapter.
         $configuration = MinecraftConfigurationAdapter::serviceClass($server) !== null;
+        // Proxy plugins and forwarding are not Bukkit plugins or a managed modpack.
+        if (VelocityConfigurationService::supports($server)) {
+            return $this->capabilities('velocity', false, $configuration);
+        }
         // Native Bedrock must never adopt stale Java/modpack metadata or gain Java installers.
         if (BedrockConfigurationService::supports($server)) {
             return $this->capabilities('bedrock', false, $configuration);
@@ -98,6 +102,7 @@ class ServerSoftwareCapabilityService
             'paper', 'paper + geyser + floodgate', 'purpur' => 'paper',
             'spigot' => 'spigot',
             'bukkit', 'craftbukkit' => 'bukkit',
+            'velocity' => 'velocity',
             default => null,
         };
     }
@@ -105,6 +110,7 @@ class ServerSoftwareCapabilityService
     private function capabilities(string $software, bool $managedModpack = false, bool $configuration = false): array
     {
         $name = match ($software) {
+            'velocity' => 'Velocity',
             'bedrock' => 'Vanilla Bedrock',
             'vanilla' => 'Minecraft Vanilla',
             'paper' => 'Paper',
@@ -118,7 +124,7 @@ class ServerSoftwareCapabilityService
             'modrinth' => 'Minecraft Modrinth',
             default => 'Unsupported software',
         };
-        $plugins = in_array($software, ['paper', 'spigot', 'bukkit'], true);
+        $plugins = in_array($software, ['paper', 'spigot', 'bukkit', 'velocity'], true);
         $mods = $software === 'forge';
         $modpacks = $managedModpack || $software === 'curseforge';
         $modpackLoaders = $modpacks ? self::MOD_LOADERS : [];

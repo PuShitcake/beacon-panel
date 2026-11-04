@@ -20,7 +20,8 @@ import {
 } from '@/api/server/beacon/configuration';
 import { configurationChanges, validConfigurationChanges } from '@/api/server/beacon/configurationValues';
 import { prepareConfigurationBackup } from '@/api/server/beacon/configurationBackup';
-import { configurationVersionSourceLabel } from '@/api/server/beacon/configurationSource';
+import { configurationFileName, configurationTitle } from '@/api/server/beacon/configurationSource';
+import ConfigurationHelp from '@/components/server/beacon/ConfigurationHelp';
 import { usePermissions } from '@/plugins/usePermissions';
 
 const MODPACK_REQUIRED_MESSAGE = 'Install a modpack before using Minecraft Configuration.';
@@ -164,7 +165,9 @@ const ConfigurationContainer = () => {
     if (loading) return <Spinner size={'large'} centered />;
 
     return (
-        <ServerContentBlock title={'Minecraft Configuration'}>
+        <ServerContentBlock
+            title={configuration?.source === 'velocity.toml' ? 'Velocity Configuration' : 'Minecraft Configuration'}
+        >
             <Dialog.Confirm
                 open={confirmWorld}
                 title={'Save world settings?'}
@@ -189,8 +192,8 @@ const ConfigurationContainer = () => {
                 <ContentBox
                     title={
                         configuration?.state === 'waiting'
-                            ? 'Waiting for server.properties'
-                            : 'Minecraft Configuration unavailable'
+                            ? `Waiting for ${configurationFileName(configuration)}`
+                            : `${configuration?.runtime_name || 'Minecraft'} Configuration unavailable`
                     }
                 >
                     <p css={tw`text-sm text-neutral-300`}>{unavailableReason || configuration?.unavailable_reason}</p>
@@ -199,33 +202,8 @@ const ConfigurationContainer = () => {
                     </Button>
                 </ContentBox>
             ) : configuration ? (
-                <ContentBox
-                    title={
-                        configuration.game_version
-                            ? `${configuration.runtime_name || 'Vanilla Minecraft'} ${
-                                  configuration.game_version
-                              } — server.properties`
-                            : `${configuration.runtime_name || 'Minecraft'} — server.properties`
-                    }
-                    showLoadingOverlay={saving}
-                >
-                    <p css={tw`text-xs text-yellow-200 mb-5`}>
-                        Only Beacon-approved settings are shown. Stop the server before saving changes.
-                    </p>
-                    {configuration.source === 'server.properties' && (
-                        <p css={tw`text-xs text-neutral-300 mb-4`}>
-                            Fields and values come from the existing server.properties on this instance. Missing
-                            settings are not added and no default values are applied.
-                        </p>
-                    )}
-                    {configurationVersionSourceLabel(configuration) && (
-                        <p css={tw`text-xs text-neutral-300 mb-4`}>{configurationVersionSourceLabel(configuration)}</p>
-                    )}
-                    {configuration.notes?.map((note) => (
-                        <p key={note} css={tw`text-sm text-neutral-200 mb-4`}>
-                            {note}
-                        </p>
-                    ))}
+                <ContentBox title={configurationTitle(configuration)} showLoadingOverlay={saving}>
+                    <ConfigurationHelp configuration={configuration} />
                     <div css={tw`grid grid-cols-1 md:grid-cols-2 gap-5`}>
                         {Object.keys(configuration.definitions).length === 0 && (
                             <p css={tw`text-sm text-neutral-300`}>

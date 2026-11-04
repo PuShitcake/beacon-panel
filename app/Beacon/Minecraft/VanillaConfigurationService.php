@@ -11,7 +11,7 @@ use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Pterodactyl\Repositories\Wings\DaemonServerRepository;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
-class VanillaConfigurationService
+class VanillaConfigurationService implements MinecraftConfigurationService
 {
     protected const RUNTIME = 'Vanilla';
 

@@ -11,8 +11,8 @@ use Illuminate\Database\Schema\Blueprint;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Pterodactyl\Repositories\Wings\DaemonServerRepository;
-use Pterodactyl\Beacon\Minecraft\VanillaConfigurationService;
 use Pterodactyl\Beacon\Minecraft\MinecraftConfigurationAdapter;
+use Pterodactyl\Beacon\Minecraft\MinecraftConfigurationService;
 use Pterodactyl\Beacon\Minecraft\ServerSoftwareCapabilityService;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Pterodactyl\Beacon\Modpacks\NativeCurseForgeContentRuntimeResolver;
@@ -96,7 +96,7 @@ class ConfigurationAdmissionTest extends TestCase
         $this->app->instance($class, $adapter);
         $response = app(BeaconConfigurationController::class)->show(new BeaconConfigurationReadRequest(), $server);
         $this->assertSame(['state' => 'waiting', 'editable' => false], $response->getData(true)['data']);
-        $this->assertInstanceOf(VanillaConfigurationService::class, $adapter);
+        $this->assertInstanceOf(MinecraftConfigurationService::class, $adapter);
     }
 
     #[DataProvider('supportedEggs')]
@@ -161,16 +161,36 @@ class ConfigurationAdmissionTest extends TestCase
         $this->assertFalse(app('validator')->make(['hash' => str_repeat('a', 64), 'properties' => ['motd' => 'test']], $rules)->passes());
     }
 
+    public function testProxyEditorRetainsNativeFileReadAndUpdatePermissions(): void
+    {
+        $this->assertSame(\Pterodactyl\Models\Permission::ACTION_FILE_READ_CONTENT, (new BeaconConfigurationReadRequest())->permission());
+        $this->assertSame(\Pterodactyl\Models\Permission::ACTION_FILE_UPDATE, (new BeaconConfigurationWriteRequest())->permission());
+    }
+
     public static function supportedEggs(): array
     {
-        return array_map(fn ($name) => [$name], ['Vanilla Minecraft', 'Paper', 'Paper + Geyser + Floodgate', 'Fabric', 'CurseForge Generic', 'Vanilla Bedrock']);
+        return array_map(fn ($name) => [$name], ['Vanilla Minecraft', 'Paper', 'Paper + Geyser + Floodgate', 'Fabric', 'CurseForge Generic', 'Vanilla Bedrock', 'Velocity']);
     }
 
     public static function unsupportedEggs(): array
     {
         return [['paper', 'Beacon'], [' Paper ', 'Beacon'], ['Purpur', 'Beacon'], ['Spigot', 'Beacon'], ['Bukkit', 'Beacon'],
             ['Forge Minecraft', 'Beacon'], ['NeoForge', 'Beacon'], ['Quilt', 'Beacon'], ['Vanilla Bedrock Custom', 'Beacon'],
-            ['Unreviewed Minecraft', 'Beacon'], ['Paper', 'Minecraft'], ['Vanilla Bedrock', 'Minecraft']];
+            ['Unreviewed Minecraft', 'Beacon'], ['Paper', 'Minecraft'], ['Vanilla Bedrock', 'Minecraft'],
+            ['Velocity', 'Minecraft'], ['velocity', 'Beacon'], ['Custom Velocity', 'Beacon']];
+    }
+
+    public function testVelocityNeverAdoptsStaleModpackMetadataOrJavaMods(): void
+    {
+        $server = $this->server('Velocity', 'Beacon');
+        DB::table('beacon_modpack_installations')->insert(['server_id' => $server->id, 'loader' => 'forge']);
+        $caps = app(ServerSoftwareCapabilityService::class)->resolve($server);
+        $this->assertSame('velocity', $caps['software']);
+        $this->assertTrue($caps['configuration']);
+        $this->assertTrue($caps['plugins']);
+        foreach (['mods', 'modpacks'] as $capability) {
+            $this->assertFalse($caps[$capability]);
+        }
     }
 
     public static function eggs(): array
