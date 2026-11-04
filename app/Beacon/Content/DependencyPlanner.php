@@ -55,7 +55,11 @@ class DependencyPlanner
         if (($version['project_type'] ?? null) !== $projectType || ($version['server_side'] ?? null) === 'unsupported') {
             throw new ConflictHttpException('The selected project cannot run on this server.');
         }
-        if (!in_array($gameVersion, $version['game_versions'], true) || !in_array($loader, $version['loaders'], true)) {
+        // Proxy releases are not Minecraft versions. These adapters provide catalog metadata,
+        // not byte-level plugin-platform verification or an exact proxy-version guarantee.
+        $proxyMetadata = $projectType === 'plugin' && $loader === 'velocity'
+            && ($version['compatibility'] ?? null) === 'provider_metadata';
+        if ((!$proxyMetadata && !in_array($gameVersion, $version['game_versions'], true)) || !in_array($loader, $version['loaders'], true)) {
             throw new ConflictHttpException('A content version is incompatible with the selected game version or loader.');
         }
 
@@ -78,6 +82,8 @@ class DependencyPlanner
             'sha512' => $file['sha512'],
             ...(isset($file['sha1']) ? ['sha1' => $file['sha1']] : []),
             ...(isset($file['sha256']) ? ['sha256' => $file['sha256']] : []),
+            ...(isset($version['review_state']) ? ['review_state' => $version['review_state']] : []),
+            ...($proxyMetadata ? ['compatibility' => 'provider_metadata'] : []),
             'dependency' => $depth > 0,
         ];
 

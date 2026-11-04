@@ -48,12 +48,10 @@ class BeaconPluginController extends ClientApiController
         $categories = [];
         $providerError = null;
         try {
+            $this->providers->forPlatform($provider, $runtime['loader'] ?? $capabilities['software']);
             $categories = $this->providers->categories($provider);
         } catch (ProviderResponseException $exception) {
             $providerError = $exception->getMessage();
-        }
-        if ($provider === 'hangar' && $runtime && $runtime['loader'] !== 'paper') {
-            $providerError = 'Hangar supports Paper-compatible plugins for this installer. Select another provider for this server.';
         }
         $active = BeaconOperation::query()
             ->where('server_id', $server->id)
@@ -71,9 +69,10 @@ class BeaconPluginController extends ClientApiController
             'source' => $runtime['source'] ?? null,
             'loader' => $runtime['loader'] ?? null,
             'loader_version' => $runtime['loader_version'] ?? null,
-            'game_version' => $runtime['game_version'] ?? null,
+            'game_version' => ($runtime['loader'] ?? null) === 'velocity' ? null : ($runtime['game_version'] ?? null),
+            'platform_version' => $runtime['platform_version'] ?? null,
             'provider' => $provider,
-            'providers' => $this->providers->describe(),
+            'providers' => $this->providers->describe($runtime['loader'] ?? $capabilities['software']),
             'provider_available' => $providerError === null,
             'provider_unavailable_reason' => $providerError,
             'categories' => $categories,
@@ -100,11 +99,12 @@ class BeaconPluginController extends ClientApiController
     public function search(BeaconPluginRequest $request, Server $server): JsonResponse
     {
         $runtime = $this->pluginRuntime($server);
+        $this->providerCall(fn () => $this->providers->forPlatform($this->providerKey($request), $runtime['loader']));
         if ($request->filled('category') && !in_array($request->string('category')->toString(), array_column($this->providers->categories($this->providerKey($request)), 'value'), true)) {
             throw new HttpException(422, 'The selected plugin category is not supported by this provider.');
         }
 
-        return new JsonResponse(['data' => $this->providerCall(fn () => $this->providers->get($this->providerKey($request))->search(
+        return new JsonResponse(['data' => $this->providerCall(fn () => $this->providers->forPlatform($this->providerKey($request), $runtime['loader'])->search(
             $request->string('query')->toString(),
             $runtime['game_version'],
             $runtime['loader'],
@@ -118,14 +118,23 @@ class BeaconPluginController extends ClientApiController
     {
         $runtime = $this->pluginRuntime($server);
 
-        $versions = $this->providerCall(fn () => $this->providers->get($this->providerKey($request))->versions(
+        $versions = $this->providerCall(fn () => $this->providers->forPlatform($this->providerKey($request), $runtime['loader'])->versions(
             $projectId,
             $runtime['game_version'],
             $runtime['loader'],
         ));
 
-        return new JsonResponse(['data' => array_map(function (array $version) {
+        $provider = $this->providerKey($request);
+
+        return new JsonResponse(['data' => array_map(function (array $version) use ($provider) {
             unset($version['file']['url']);
+            if (in_array('velocity', $version['loaders'], true)) {
+                // Only Hangar's VELOCITY platformDependencies contain proxy versions.
+                $version['platform_versions'] = $provider === 'hangar' ? $version['game_versions'] : [];
+                if ($provider === 'hangar') {
+                    $version['game_versions'] = [];
+                }
+            }
 
             return $version;
         }, $versions)]);
@@ -317,7 +326,7 @@ class BeaconPluginController extends ClientApiController
             $runtime['loader'],
             'plugin',
             $provider,
-            $this->providers->get($provider),
+            $this->providers->forPlatform($provider, $runtime['loader']),
         ));
         if ($expectedProject !== null && !collect($plan['files'])->contains(fn (array $file) => !$file['dependency'] && $file['project_id'] === $expectedProject)) {
             throw new ConflictHttpException('Select a version belonging to this installed plugin and its original provider.');
@@ -425,16 +434,26 @@ class BeaconPluginController extends ClientApiController
     private function publicPlan(array $plan): array
     {
         $plan['files'] = collect($plan['files'])->map(fn (array $file) => collect($file)->except('url')->all())->all();
+        if ($plan['loader'] === 'velocity') {
+            $plan['platform_version'] = $plan['game_version'];
+            $plan['game_version'] = null;
+        }
 
         return $plan;
     }
 
     private function installationData(BeaconContentInstallation $item): array
     {
-        return $item->only([
+        $data = $item->only([
             'id', 'provider', 'project_id', 'project_name', 'version_id', 'version_number', 'icon_url',
             'loader', 'game_version', 'filename', 'size', 'dependencies', 'status', 'disabled_path', 'created_at', 'updated_at',
         ]);
+        if ($item->loader === 'velocity') {
+            $data['platform_version'] = $item->game_version;
+            $data['game_version'] = null;
+        }
+
+        return $data;
     }
 
     private function operationData(BeaconOperation $operation): array

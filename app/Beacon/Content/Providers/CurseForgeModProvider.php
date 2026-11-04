@@ -39,7 +39,8 @@ class CurseForgeModProvider implements ContentProvider
     public function search(string $query, string $gameVersion, string $loader, string $projectType, int $offset = 0, ?string $category = null): array
     {
         $this->assertForge($loader, $projectType);
-        $params = ['gameId' => 432, 'classId' => static::CLASS_ID, 'gameVersion' => $gameVersion, ... (static::MOD_LOADER_TYPE === null ? [] : ['modLoaderType' => static::MOD_LOADER_TYPE]),
+        $this->assertGameVersionFilter($gameVersion);
+        $params = ['gameId' => 432, 'classId' => static::CLASS_ID, ...($gameVersion === '' ? [] : ['gameVersion' => $gameVersion]), ... (static::MOD_LOADER_TYPE === null ? [] : ['modLoaderType' => static::MOD_LOADER_TYPE]),
             'searchFilter' => trim($query), 'index' => min(9980, max(0, $offset)), 'pageSize' => 20, 'sortField' => 6, 'sortOrder' => 'desc'];
         if ($category !== null) {
             if (!in_array($category, array_column($this->categories(), 'value'), true)) {
@@ -65,12 +66,13 @@ class CurseForgeModProvider implements ContentProvider
     public function versions(string $projectId, string $gameVersion, string $loader): array
     {
         $this->assertForge($loader, static::PROJECT_TYPE);
+        $this->assertGameVersionFilter($gameVersion);
         $projectId = $this->id($projectId);
         $project = $this->project($projectId);
-        $response = $this->get('/mods/' . $projectId . '/files', ['gameVersion' => $gameVersion, ... (static::MOD_LOADER_TYPE === null ? [] : ['modLoaderType' => static::MOD_LOADER_TYPE]), 'pageSize' => 50]);
+        $response = $this->get('/mods/' . $projectId . '/files', [...($gameVersion === '' ? [] : ['gameVersion' => $gameVersion]), ... (static::MOD_LOADER_TYPE === null ? [] : ['modLoaderType' => static::MOD_LOADER_TYPE]), 'pageSize' => 50]);
 
         return collect($this->list($response))
-            ->filter(fn ($file) => is_array($file) && is_array($file['gameVersions'] ?? null) && in_array($gameVersion, $file['gameVersions'], true)
+            ->filter(fn ($file) => is_array($file) && is_array($file['gameVersions'] ?? null) && ($gameVersion === '' || in_array($gameVersion, $file['gameVersions'], true))
                 && (static::FILE_LOADER === null || in_array(static::FILE_LOADER, $file['gameVersions'] ?? [], true)) && is_string($file['downloadUrl'] ?? null))
             ->map(fn (array $file) => $this->normalize($file, $project))
             ->sortByDesc('published_at')->values()->all();
@@ -256,6 +258,13 @@ class CurseForgeModProvider implements ContentProvider
         }
 
         return $data[$key];
+    }
+
+    private function assertGameVersionFilter(string $gameVersion): void
+    {
+        if ($gameVersion === '' && static::PROJECT_TYPE !== 'plugin') {
+            throw new ProviderResponseException('A Minecraft version is required for CurseForge mods.');
+        }
     }
 
     private function assertForge(string $loader, string $type): void

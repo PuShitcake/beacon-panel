@@ -79,6 +79,13 @@ class ProcessPluginOperationJob implements ShouldQueue
                 throw new ConflictHttpException('A previous plugin mutation was interrupted. Review its safety backup and server files before retrying.');
             }
             $runtime->assertOperationRuntime($server, data_get($operation->payload, 'runtime', []));
+            if (data_get($operation->payload, 'runtime.loader') === 'velocity' && data_get($operation->payload, 'action') !== 'uninstall') {
+                app(PluginProviderRegistry::class)->forPlatform(
+                    data_get($operation->payload, 'provider', 'modrinth'),
+                    data_get($operation->payload, 'runtime.loader', ''),
+                );
+            }
+            $this->assertReviewPolicy($operation->payload);
             if (!$power->prepare($operation, $server)) {
                 $this->release(5);
 
@@ -128,6 +135,7 @@ class ProcessPluginOperationJob implements ShouldQueue
         DaemonFileRepository $files,
     ): array {
         $payload = $operation->payload;
+        $this->assertReviewPolicy($payload);
         $provider = $payload['provider'] ?? 'modrinth';
         if (!in_array($provider, ['modrinth', 'curseforge', 'hangar'], true)
             || data_get($payload, 'plan.provider', $provider) !== $provider) {
@@ -442,6 +450,20 @@ class ProcessPluginOperationJob implements ShouldQueue
             $activity->actor($operation->user);
         }
         $activity->log();
+    }
+
+    private function assertReviewPolicy(array $payload): void
+    {
+        if (($payload['provider'] ?? null) !== 'hangar' || ($payload['action'] ?? null) === 'uninstall') {
+            return;
+        }
+        foreach (data_get($payload, 'plan.files', []) as $file) {
+            // Plans made before review metadata was persisted were reviewed-only.
+            $state = array_key_exists('review_state', $file) ? $file['review_state'] : 'reviewed';
+            if (!in_array($state, ['reviewed', 'unreviewed'], true)) {
+                throw new ConflictHttpException('The Hangar file has an unsupported review status. No plugin files were changed.');
+            }
+        }
     }
 
     private function safeError(\Throwable $exception): string

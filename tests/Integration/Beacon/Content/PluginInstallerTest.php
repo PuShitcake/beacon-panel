@@ -160,7 +160,7 @@ class PluginInstallerTest extends TestCase
     public static function eggs(): array
     {
         return [['Paper', 'paper'], ['Paper + Geyser + Floodgate', 'paper'], ['Purpur', 'paper'], ['Spigot', 'spigot'], ['CraftBukkit', 'bukkit'],
-            ['Vanilla Minecraft', null], ['CurseForge Generic', null], ['Fabric', null], ['Vanilla Bedrock', null], ['Unknown', null]];
+            ['Velocity', 'velocity'], ['Vanilla Minecraft', null], ['CurseForge Generic', null], ['Fabric', null], ['Vanilla Bedrock', null], ['Unknown', null]];
     }
 
     #[DataProvider('eggs')]
@@ -178,6 +178,299 @@ class PluginInstallerTest extends TestCase
         $this->disk['/version_history.json'] = json_encode(['currentVersion' => 'git-Paper-123 (MC: 1.21.1)']);
         $this->assertSame('1.21.1', $this->runtime->resolve($this->server())['game_version']);
         $this->assertSame(0, DB::table('beacon_server_metadata')->count());
+    }
+
+    private function velocity(?string $version = '4.3.1'): void
+    {
+        DB::table('eggs')->update(['name' => 'Velocity']);
+        DB::table('egg_variables')->update(['env_variable' => 'SERVER_JARFILE']);
+        DB::table('server_variables')->update(['variable_value' => 'velocity.jar']);
+        $this->disk['/velocity.jar'] = 'proxy-fixture';
+        // Independent identity-parser tests exercise real ZIP streams, not this admission fixture.
+        $identity = \Mockery::mock(\Pterodactyl\Beacon\Minecraft\VelocityJarIdentity::class);
+        $identity->allows('inspect')->andReturnUsing(fn () => ['identity' => hash('sha256', $this->disk['/velocity.jar'] ?? ''), 'version' => $version]);
+        app()->instance(\Pterodactyl\Beacon\Minecraft\VelocityJarIdentity::class, $identity);
+    }
+
+    public function testVelocityUsesTheActualProxyVersionAndDefaultsToCurseForgeWithoutBypassingProviderRestrictions(): void
+    {
+        $this->velocity();
+        $this->disk['/version_history.json'] = json_encode(['currentVersion' => 'git-Paper-123 (MC: 1.21.1)']);
+        $runtime = $this->runtime->resolve($this->server());
+        $this->assertSame('velocity', $runtime['loader']);
+        $this->assertSame('4.3.1', $runtime['platform_version']);
+        $context = app(BeaconPluginController::class)->context($this->request('GET'), $this->server())->getData(true)['data'];
+        $this->assertTrue($context['enabled']);
+        $this->assertNull($context['game_version']);
+        $this->assertSame('4.3.1', $context['platform_version']);
+        $this->assertSame('curseforge', $context['provider']);
+        $this->assertFalse($context['provider_available']);
+        $this->assertStringContainsString('API key', $context['provider_unavailable_reason']);
+        $this->assertSame([false, true, true], array_column($context['providers'], 'available'));
+        Http::assertNothingSent();
+    }
+
+    public function testVelocityJarDriftInvalidatesAnExistingOperation(): void
+    {
+        $this->velocity();
+        $runtime = $this->runtime->resolve($this->server());
+        $this->disk['/velocity.jar'] = 'new-proxy-fixture';
+        $this->expectException(ConflictHttpException::class);
+        $this->runtime->assertOperationRuntime($this->server(), $runtime);
+    }
+
+    public function testVelocityDoesNotGuessMissingVersionMetadata(): void
+    {
+        $this->velocity(null);
+        $context = app(BeaconPluginController::class)->context($this->request('GET'), $this->server())->getData(true)['data'];
+        $this->assertFalse($context['enabled']);
+        $this->assertStringContainsString('version could not be verified', $context['unavailable_reason']);
+    }
+
+    public function testVelocityCannotInstallAModrinthPaperFileDirectly(): void
+    {
+        $this->velocity();
+        Http::fake([
+            'api.modrinth.com/v2/version/paper1' => Http::response(['id' => 'paper1', 'project_id' => 'paper', 'name' => 'Release', 'version_number' => '1',
+                'version_type' => 'release', 'game_versions' => ['1.20.1'], 'loaders' => ['paper'], 'dependencies' => [],
+                'files' => [['url' => 'https://cdn.modrinth.com/paper.jar', 'filename' => 'paper.jar', 'size' => 7, 'hashes' => ['sha512' => hash('sha512', 'fixture')]]]]),
+            'api.modrinth.com/v2/project/paper' => Http::response(['title' => 'Paper plugin', 'project_type' => 'plugin', 'server_side' => 'required']),
+        ]);
+        try {
+            app(BeaconPluginController::class)->install($this->request('POST', ['provider' => 'modrinth', 'version_id' => 'paper1']), $this->server());
+            $this->fail('Paper file must be rejected before queueing.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(422, $e->getStatusCode());
+            $this->assertStringContainsString('not a Velocity', $e->getMessage());
+        }
+        $this->assertSame(0, BeaconOperation::query()->count());
+        Bus::assertNotDispatched(ProcessPluginOperationJob::class);
+        Http::assertNotSent(fn ($r) => str_contains($r->url(), 'cdn.modrinth.com'));
+    }
+
+    public function testVelocityWorkerStillRejectsUnknownProvidersBeforePowerOrBackupChanges(): void
+    {
+        $this->velocity();
+        $operation = BeaconOperation::query()->create(['server_id' => 1, 'user_id' => 1, 'uuid' => 'velocity-wrong-provider',
+            'type' => 'plugin.install', 'status' => 'pending',
+            'payload' => ['phase' => 'prepare', 'action' => 'install', 'provider' => 'unknown', 'runtime' => $this->runtime->resolve($this->server())]]);
+        $power = \Mockery::mock(PluginPowerService::class);
+        $power->shouldNotReceive('prepare');
+        $prepare = \Mockery::mock(PrepareContentMutationService::class);
+        $prepare->shouldNotReceive('handle');
+        $this->files->shouldNotReceive('pull');
+        \Illuminate\Support\Facades\Log::shouldReceive('error')->once()->with('Beacon operation failed.', \Mockery::on(
+            fn (array $context) => $context['exception_class'] === \Pterodactyl\Beacon\Content\Exceptions\ProviderResponseException::class
+                && $context['source_file'] === 'PluginProviderRegistry.php'
+        ));
+        (new ProcessPluginOperationJob($operation->id))->handle($power, $prepare, $this->files, $this->runtime);
+        $this->assertSame('failed', $operation->refresh()->status);
+        $this->assertSame('The plugin operation failed. Review the protected application logs.', $operation->error_message);
+    }
+
+    public function testVelocityCannotUsePaperHistoryWhenItsJarIsMissing(): void
+    {
+        $this->velocity();
+        unset($this->disk['/velocity.jar']);
+        $this->disk['/version_history.json'] = json_encode(['currentVersion' => 'git-Paper-123 (MC: 1.21.1)']);
+        $this->expectException(ConflictHttpException::class);
+        $this->runtime->resolve($this->server());
+    }
+
+    public function testVelocityPublicPlanKeepsProxyVersionSeparateAndQueuesIdempotently(): void
+    {
+        $this->velocity();
+        $version = $this->version();
+        $version['id'] = '123:456:velocity';
+        $version['game_versions'] = ['4.3.1'];
+        $version['loaders'] = ['velocity'];
+        $provider = \Mockery::mock(\Pterodactyl\Beacon\Content\Providers\HangarPluginProvider::class);
+        $provider->allows('version')->with('123:456:velocity')->andReturn($version);
+        app()->instance(\Pterodactyl\Beacon\Content\Providers\HangarPluginProvider::class, $provider);
+        $controller = app(BeaconPluginController::class);
+        $request = $this->request('POST', ['provider' => 'hangar', 'version_id' => '123:456:velocity']);
+        $plan = $controller->plan($request, $this->server())->getData(true)['data'];
+        $this->assertNull($plan['game_version']);
+        $this->assertSame('4.3.1', $plan['platform_version']);
+        $this->assertSame('hangar', $plan['provider']);
+        $this->assertArrayNotHasKey('url', $plan['files'][0]);
+        $first = $controller->install($request, $this->server())->getData(true)['data'];
+        $second = $controller->install($request, $this->server())->getData(true)['data'];
+        $this->assertSame($first['uuid'], $second['uuid']);
+        $this->assertArrayNotHasKey('payload', $first);
+        Bus::assertDispatchedTimes(ProcessPluginOperationJob::class, 1);
+    }
+
+    private function externalVelocity(string $provider, string $bytes, int $revision = 1): string
+    {
+        config()->set('beacon.modpacks.providers.curseforge.enabled', true);
+        config()->set('beacon.modpacks.providers.curseforge.api_key', 'fixture-key');
+        if ($provider === 'modrinth') {
+            $id = 'version' . $revision;
+            Http::fake([
+                'api.modrinth.com/v2/version/' . $id => Http::response(['id' => $id, 'project_id' => 'project1', 'name' => 'Release',
+                    'version_number' => (string) $revision, 'version_type' => 'release', 'game_versions' => ['1.21.1'], 'loaders' => ['velocity'], 'dependencies' => [],
+                    'files' => [['url' => 'https://cdn.modrinth.com/data/project1/' . $revision . '.jar', 'filename' => 'fixture.jar', 'size' => strlen($bytes), 'hashes' => ['sha512' => hash('sha512', $bytes)]]]]),
+                'api.modrinth.com/v2/project/project1' => Http::response(['title' => 'Fixture', 'project_type' => 'plugin', 'server_side' => 'required']),
+                'cdn.modrinth.com/data/project1/' . $revision . '.jar' => Http::response($bytes),
+            ]);
+
+            return $id;
+        }
+        $id = 455 + $revision;
+        Http::fake([
+            'api.curseforge.com/v1/mods/123' => Http::response(['data' => ['id' => 123, 'gameId' => 432, 'classId' => 5, 'isAvailable' => true, 'name' => 'Fixture']]),
+            'api.curseforge.com/v1/mods/123/files/' . $id => Http::response(['data' => [
+                'id' => $id, 'modId' => 123, 'isAvailable' => true, 'fileStatus' => 4, 'releaseType' => 1, 'gameVersions' => ['1.21.1'],
+                'fileName' => 'fixture.jar', 'fileLength' => strlen($bytes), 'displayName' => 'Release', 'fileDate' => '2026-01-01', 'dependencies' => [],
+                'hashes' => [['algo' => 1, 'value' => hash('sha1', $bytes)]], 'downloadUrl' => 'https://edge.forgecdn.net/files/1/' . $id . '/fixture.jar',
+            ]]),
+            'edge.forgecdn.net/files/1/' . $id . '/fixture.jar' => fn ($r) => Http::response($r->method() === 'HEAD' ? '' : $bytes),
+        ]);
+
+        return '123:' . $id . ':velocity';
+    }
+
+    public static function velocityProviders(): array
+    {
+        return [['modrinth'], ['curseforge']];
+    }
+
+    #[DataProvider('velocityProviders')]
+    public function testExternalVelocityPlansInstallReinstallUpdateAndUninstallThroughTheRealWorker(string $provider): void
+    {
+        $this->velocity();
+        $bytes = VelocityPluginProviderTest::jar();
+        $versionId = $this->externalVelocity($provider, $bytes);
+        $controller = app(BeaconPluginController::class);
+        $plan = $controller->plan($this->request('POST', ['provider' => $provider, 'version_id' => $versionId]), $this->server())->getData(true)['data'];
+        $this->assertNull($plan['game_version']);
+        $this->assertSame('4.3.1', $plan['platform_version']);
+        $this->assertSame('provider_metadata', $plan['files'][0]['compatibility']);
+        $this->assertArrayNotHasKey('velocity_plugin', $plan['files'][0]);
+        $this->assertArrayNotHasKey('url', $plan['files'][0]);
+        $this->files->allows('pull')->andReturnUsing(function ($url, $directory, $options) use (&$bytes) {
+            $this->disk[$directory . '/' . $options['filename']] = $bytes;
+
+            return new \GuzzleHttp\Psr7\Response(204);
+        });
+        $this->files->allows('getFileHashes')->andReturnUsing(fn ($path) => [
+            'size' => strlen($this->disk[$path]), 'sha1' => hash('sha1', $this->disk[$path]),
+            'sha256' => hash('sha256', $this->disk[$path]), 'sha512' => hash('sha512', $this->disk[$path]),
+        ]);
+        $power = \Mockery::mock(PluginPowerService::class);
+        $power->allows('prepare')->andReturn(true);
+        $power->allows('beginRestart')->andReturn(false);
+        $prepare = \Mockery::mock(PrepareContentMutationService::class);
+        $prepare->allows('handle')->andReturn(true);
+        foreach (['install', 'reinstall', 'update', 'uninstall'] as $index => $action) {
+            $request = $this->request('POST', ['provider' => $provider, 'version_id' => $versionId], 'velocity-' . $action);
+            $installed = BeaconContentInstallation::query()->first();
+            if ($action === 'update') {
+                $bytes = VelocityPluginProviderTest::jar(['id' => 'fixture', 'main' => 'example.Main', 'version' => '2']);
+                $versionId = $this->externalVelocity($provider, $bytes, 2);
+                $request = $this->request('POST', ['provider' => $provider, 'version_id' => $versionId], 'velocity-update');
+            }
+            $response = $action === 'install' ? $controller->install($request, $this->server())
+                : $controller->{$action}($request, $this->server(), $installed->id);
+            $uuid = $response->getData(true)['data']['uuid'];
+            $operation = BeaconOperation::query()->where('uuid', $uuid)->firstOrFail();
+            (new ProcessPluginOperationJob($operation->id))->handle($power, $prepare, $this->files, $this->runtime);
+            $this->assertSame('succeeded', $operation->refresh()->status, $operation->error_message ?? $action);
+            if ($action !== 'uninstall') {
+                $this->assertSame($bytes, $this->disk['/plugins/fixture.jar']);
+                $this->assertSame('velocity', BeaconContentInstallation::query()->firstOrFail()->loader);
+                $this->assertSame($provider, BeaconContentInstallation::query()->firstOrFail()->provider);
+            }
+        }
+        $this->assertSame(4, BeaconOperation::query()->where('status', 'succeeded')->count());
+        $this->assertSame(0, BeaconContentInstallation::query()->count());
+        $this->assertArrayNotHasKey('/plugins/fixture.jar', $this->disk);
+    }
+
+    public function testPlanningNoLongerReadsDependenciesFromTheNativePluginDescriptor(): void
+    {
+        $this->velocity();
+        $bytes = VelocityPluginProviderTest::jar(['id' => 'fixture', 'main' => 'example.Main', 'dependencies' => [['id' => 'missing']]]);
+        $id = $this->externalVelocity('modrinth', $bytes);
+        $plan = app(BeaconPluginController::class)->plan($this->request('GET', ['provider' => 'modrinth', 'version_id' => $id]), $this->server())->getData(true)['data'];
+        $this->assertArrayNotHasKey('velocity_plugin', $plan['files'][0]);
+        $this->assertSame('provider_metadata', $plan['files'][0]['compatibility']);
+        $this->assertSame(0, BeaconOperation::query()->count());
+        Bus::assertNotDispatched(ProcessPluginOperationJob::class);
+    }
+
+    private function hangarReviewFixture(string $review = 'unreviewed'): void
+    {
+        Http::fake([
+            'hangar.papermc.io/api/v1/projects/123' => Http::response(['id' => 123, 'name' => 'Fixture', 'visibility' => 'public']),
+            'hangar.papermc.io/api/v1/projects/123/versions/456' => Http::response([
+                'id' => 456, 'projectId' => 123, 'name' => '1.0', 'visibility' => 'public', 'reviewState' => $review,
+                'createdAt' => '2026-01-01', 'channel' => ['name' => 'Release'],
+                'platformDependencies' => ['PAPER' => ['1.20.1']], 'pluginDependencies' => ['PAPER' => []],
+                'downloads' => ['PAPER' => ['externalUrl' => null, 'downloadUrl' => 'https://hangarcdn.papermc.io/plugin.jar',
+                    'fileInfo' => ['name' => 'plugin.jar', 'sizeBytes' => 7, 'sha256Hash' => hash('sha256', 'fixture')]]],
+            ]),
+        ]);
+    }
+
+    public function testHangarUnreviewedPlanAndMutationWorkWithoutAnOptInFlag(): void
+    {
+        $this->hangarReviewFixture();
+        $controller = app(BeaconPluginController::class);
+        $request = $this->request('POST', ['provider' => 'hangar', 'version_id' => '123:456']);
+        $plan = $controller->plan($request, $this->server())->getData(true)['data'];
+        $this->assertArrayNotHasKey('include_unreviewed', $plan);
+        $this->assertSame('unreviewed', $plan['files'][0]['review_state']);
+        $this->assertArrayNotHasKey('url', $plan['files'][0]);
+        $first = $controller->install($request, $this->server())->getData(true)['data'];
+        $second = $controller->install($request, $this->server())->getData(true)['data'];
+        $this->assertSame($first['uuid'], $second['uuid']);
+        $payload = BeaconOperation::firstOrFail()->payload;
+        $this->assertArrayNotHasKey('include_unreviewed', $payload);
+        $this->assertArrayNotHasKey('include_unreviewed', $payload['intent']);
+        $this->assertSame('unreviewed', $payload['plan']['files'][0]['review_state']);
+        Bus::assertDispatchedTimes(ProcessPluginOperationJob::class, 1);
+    }
+
+    public function testRetiredReviewFlagDoesNotChangeTheNewMutationIntent(): void
+    {
+        $this->hangarReviewFixture('reviewed');
+        $controller = app(BeaconPluginController::class);
+        $data = ['provider' => 'hangar', 'version_id' => '123:456'];
+        $first = $controller->install($this->request('POST', $data), $this->server())->getData(true)['data'];
+        $second = $controller->install($this->request('POST', $data + ['include_unreviewed' => false]), $this->server())->getData(true)['data'];
+        $this->assertSame($first['uuid'], $second['uuid']);
+        Bus::assertDispatchedTimes(ProcessPluginOperationJob::class, 1);
+    }
+
+    public function testContextNoLongerExposesOrUsesTheRetiredReviewFlag(): void
+    {
+        $data = app(BeaconPluginController::class)->context($this->request('GET', ['provider' => 'hangar', 'include_unreviewed' => false]), $this->server())->getData(true)['data'];
+        $this->assertSame('hangar', $data['provider']);
+        $this->assertArrayNotHasKey('include_unreviewed', $data);
+    }
+
+    public function testWorkerAcceptsUnreviewedWithoutFlagsButRejectsUnknownOrRejectedReviewStates(): void
+    {
+        $payload = ['provider' => 'hangar', 'action' => 'install', 'plan' => ['files' => [['review_state' => 'unreviewed']]]];
+        $method = new \ReflectionMethod(ProcessPluginOperationJob::class, 'assertReviewPolicy');
+        $method->invoke(new ProcessPluginOperationJob(1), $payload);
+        $this->addToAssertionCount(1);
+        // Previously persisted false flags must not block jobs under the new policy.
+        $payload['include_unreviewed'] = false;
+        $payload['plan']['include_unreviewed'] = false;
+        $method->invoke(new ProcessPluginOperationJob(1), $payload);
+        $this->addToAssertionCount(1);
+        foreach (['rejected', 'unknown', null] as $state) {
+            $payload['plan']['files'][0]['review_state'] = $state;
+            try {
+                $method->invoke(new ProcessPluginOperationJob(1), $payload);
+                $this->fail('Unsupported states must remain blocked.');
+            } catch (ConflictHttpException $e) {
+                $this->assertStringContainsString('unsupported review status', $e->getMessage());
+            }
+        }
     }
 
     public function testLatestIsNotGuessedAndShowsAReadableInstruction(): void
@@ -234,15 +527,26 @@ class PluginInstallerTest extends TestCase
 
     public static function providers(): array
     {
-        return [['curseforge'], ['modrinth'], ['hangar']];
+        return [['curseforge'], ['modrinth'], ['hangar'], ['velocity-hangar'], ['velocity-curseforge'], ['velocity-modrinth'], ['unreviewed-hangar']];
     }
 
     #[DataProvider('providers')]
     public function testRealWorkerInstallUninstallHashAndProviderIsolation(string $provider): void
     {
+        $unreviewed = $provider === 'unreviewed-hangar';
+        if ($unreviewed) {
+            $provider = 'hangar';
+        }
+        if (str_starts_with($provider, 'velocity-')) {
+            $this->velocity();
+            $provider = substr($provider, strlen('velocity-'));
+        }
         $runtime = $this->runtime->resolve($this->server());
         $url = 'https://cdn.modrinth.com/fixture.jar';
         $registry = \Mockery::mock(PluginProviderRegistry::class);
+        if ($runtime['loader'] === 'velocity') {
+            $registry->expects('forPlatform')->with($provider, 'velocity')->andReturn(app(PluginProviderRegistry::class)->forPlatform($provider, 'velocity'));
+        }
         $registry->expects('downloadUrl')->with($provider, $url)->andReturn($url);
         app()->instance(PluginProviderRegistry::class, $registry);
         $this->files->expects('pull')->andReturnUsing(function ($url, $directory, $options) {
@@ -254,7 +558,7 @@ class PluginInstallerTest extends TestCase
         $operation = BeaconOperation::query()->create(['server_id' => 1, 'user_id' => 1, 'uuid' => 'plugin-install', 'type' => 'plugin.install', 'status' => 'pending',
             'payload' => ['phase' => 'prepare', 'action' => 'install', 'provider' => $provider, 'runtime' => $runtime, 'plan' => ['provider' => $provider, 'files' => [
                 ['project_id' => '123', 'project_name' => 'Fixture', 'version_id' => '123:456', 'version_number' => '1.0', 'name' => 'Release', 'url' => $url, 'filename' => 'fixture.jar', 'size' => 7,
-                    'sha1' => hash('sha1', 'fixture'), 'sha256' => hash('sha256', 'fixture'), 'sha512' => hash('sha512', 'fixture'), 'dependency' => false],
+                    'sha1' => hash('sha1', 'fixture'), 'sha256' => hash('sha256', 'fixture'), 'sha512' => hash('sha512', 'fixture'), 'dependency' => false, 'review_state' => $unreviewed ? 'unreviewed' : 'reviewed'],
             ]]]]);
         $power = \Mockery::mock(PluginPowerService::class);
         $power->expects('prepare')->twice()->andReturn(true);
@@ -287,6 +591,42 @@ class PluginInstallerTest extends TestCase
             'Backup creation is temporarily rate limited. Try again after the backup cooldown.',
             $method->invoke($job, new \Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException(null, 'PRIVATE'))
         );
+    }
+
+    #[DataProvider('velocityProviders')]
+    public function testRemovingDescriptorInspectionDoesNotAllowChecksumMismatch(string $provider): void
+    {
+        $this->velocity();
+        $runtime = $this->runtime->resolve($this->server());
+        $url = 'https://cdn.modrinth.com/fixture.jar';
+        $registry = \Mockery::mock(PluginProviderRegistry::class);
+        $registry->expects('forPlatform')->with($provider, 'velocity')->andReturn(app(PluginProviderRegistry::class)->forPlatform($provider, 'velocity'));
+        $registry->expects('downloadUrl')->with($provider, $url)->andReturn($url);
+        app()->instance(PluginProviderRegistry::class, $registry);
+        $this->disk['/plugins/existing.jar'] = 'keep-original';
+        $this->files->expects('pull')->andReturnUsing(function ($url, $directory, $options) {
+            $this->disk[$directory . '/' . $options['filename']] = 'changed';
+
+            return new \GuzzleHttp\Psr7\Response(204);
+        });
+        $this->files->expects('getFileHashes')->andReturn(['size' => 7, 'sha1' => hash('sha1', 'changed'), 'sha512' => hash('sha512', 'changed')]);
+        $operation = BeaconOperation::query()->create(['server_id' => 1, 'user_id' => 1, 'uuid' => 'velocity-bad-hash',
+            'type' => 'plugin.install', 'status' => 'pending', 'payload' => ['phase' => 'prepare', 'action' => 'install',
+                'provider' => $provider, 'runtime' => $runtime, 'plan' => ['provider' => $provider, 'files' => [[
+                    'project_id' => '123', 'name' => 'Fixture', 'filename' => 'fixture.jar', 'size' => 7, 'url' => $url,
+                    'sha1' => hash('sha1', 'fixture'), 'sha512' => hash('sha512', 'fixture'), 'dependency' => false,
+                ]]]]]);
+        $power = \Mockery::mock(PluginPowerService::class);
+        $power->expects('prepare')->andReturn(true);
+        $power->shouldNotReceive('beginRestart');
+        $prepare = \Mockery::mock(PrepareContentMutationService::class);
+        $prepare->expects('handle')->andReturn(true);
+        (new ProcessPluginOperationJob($operation->id))->handle($power, $prepare, $this->files, $this->runtime);
+        $this->assertSame('failed', $operation->refresh()->status);
+        $this->assertStringContainsString('checksum verification', $operation->error_message);
+        $this->assertSame('keep-original', $this->disk['/plugins/existing.jar']);
+        $this->assertArrayNotHasKey('/plugins/fixture.jar', $this->disk);
+        $this->assertSame(0, BeaconContentInstallation::count());
     }
 
     public static function failedReplacements(): array

@@ -11,9 +11,10 @@ export interface PluginContext {
     software_name: string;
     unavailable_reason: string | null;
     source: 'native_plugin' | null;
-    loader: 'paper' | 'spigot' | 'bukkit' | null;
+    loader: 'paper' | 'spigot' | 'bukkit' | 'velocity' | null;
     loader_version: string | null;
     game_version: string | null;
+    platform_version?: string | null;
     provider: PluginProvider;
     providers: Array<{ id: PluginProvider; name: string; available: boolean }>;
     provider_available: boolean;
@@ -33,6 +34,7 @@ export interface PluginProject {
     icon_url: string | null;
     downloads: number;
     server_side: string | null;
+    review_state?: 'reviewed' | 'unreviewed';
 }
 
 export interface PluginVersion {
@@ -44,6 +46,9 @@ export interface PluginVersion {
     version_type: string;
     game_versions: string[];
     loaders: string[];
+    platform_versions?: string[];
+    compatibility?: 'provider_metadata';
+    review_state?: 'reviewed' | 'unreviewed';
     file: { filename: string; size: number; sha512: string | null; sha1?: string };
 }
 
@@ -57,7 +62,8 @@ export interface PluginInstallation {
     icon_url: string | null;
     filename: string;
     loader: string;
-    game_version: string;
+    game_version: string | null;
+    platform_version?: string | null;
     size: number;
     dependencies: string[];
     status: string;
@@ -79,7 +85,8 @@ export interface PluginInstallPlan {
     provider: PluginProvider;
     project_type: 'plugin';
     loader: string;
-    game_version: string;
+    game_version: string | null;
+    platform_version?: string | null;
     files: Array<{
         project_id: string;
         project_name: string;
@@ -91,6 +98,8 @@ export interface PluginInstallPlan {
         sha512: string | null;
         sha1?: string;
         dependency: boolean;
+        compatibility?: 'provider_metadata';
+        review_state?: 'reviewed' | 'unreviewed';
     }>;
     optional_dependencies: Array<{ project_id?: string; version_id?: string }>;
     incompatible_dependencies: Array<{ project_id?: string; version_id?: string }>;
@@ -109,7 +118,9 @@ export const getPluginContext = async (
     provider: PluginProvider = 'curseforge'
 ): Promise<PluginContext> => {
     return retryPluginRead(async () => {
-        const { data } = await http.get(`${base(server)}/context`, { params: { provider } });
+        const { data } = await http.get(`${base(server)}/context`, {
+            params: { provider },
+        });
         return data.data;
     });
 };
@@ -134,9 +145,14 @@ export const searchPlugins = async (
     offset = 0,
     category = '',
     provider: PluginProvider = 'curseforge'
-): Promise<{ projects: PluginProject[]; offset: number; limit: number; total: number }> => {
+): Promise<{ projects: PluginProject[]; offset: number; limit: number; total: number; page_filtered?: boolean }> => {
     const { data } = await http.get(`${base(server)}/search`, {
-        params: { provider, query, offset, ...(category ? { category } : {}) },
+        params: {
+            provider,
+            query,
+            offset,
+            ...(category ? { category } : {}),
+        },
     });
     return data.data;
 };
@@ -157,7 +173,9 @@ export const getPluginPlan = async (
     version: string,
     provider: PluginProvider = 'curseforge'
 ): Promise<PluginInstallPlan> => {
-    const { data } = await http.get(`${base(server)}/plan`, { params: { provider, version_id: version } });
+    const { data } = await http.get(`${base(server)}/plan`, {
+        params: { provider, version_id: version },
+    });
     return data.data;
 };
 
@@ -188,10 +206,14 @@ export const updatePlugin = async (
     return data.data;
 };
 
-export const reinstallPlugin = async (server: string, installation: number): Promise<PluginOperation> => {
+export const reinstallPlugin = async (
+    server: string,
+    installation: number,
+    provider: PluginProvider = 'curseforge'
+): Promise<PluginOperation> => {
     const { data } = await http.post(
         `${base(server)}/installations/${installation}/reinstall`,
-        {},
+        { provider },
         { headers: mutationHeaders() }
     );
     return data.data;

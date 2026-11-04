@@ -4,6 +4,9 @@ import {
     getPluginContext,
     getPluginHistory,
     getPluginInstallations,
+    getPluginVersions,
+    getPluginPlan,
+    searchPlugins,
     installPlugin,
     updatePlugin,
     reinstallPlugin,
@@ -49,5 +52,30 @@ describe('plugin refresh and mutation separation', () => {
         expect(jest.getTimerCount()).toBe(0);
         expect(jest.mocked(http.post).mock.calls.length + jest.mocked(http.delete).mock.calls.length).toBe(1);
         expect(http.get).not.toHaveBeenCalled();
+    });
+
+    it('does not send a review filter on discovery or preview requests', async () => {
+        jest.mocked(http.get).mockResolvedValue({ data: { data: {} } });
+        await getPluginContext('server', 'hangar');
+        await searchPlugins('server', '', 0, '', 'hangar');
+        await getPluginVersions('server', '123', 'hangar');
+        await getPluginPlan('server', '123:456', 'hangar');
+        await searchPlugins('server', '', 0, '', 'curseforge');
+        await getPluginVersions('server', '123', 'modrinth');
+        for (const [, config] of jest.mocked(http.get).mock.calls) {
+            expect(config?.params).not.toHaveProperty('include_unreviewed');
+        }
+        expect(http.post).not.toHaveBeenCalled();
+    });
+
+    it('installs, updates and reinstalls without the retired review consent field', async () => {
+        jest.mocked(http.post).mockResolvedValue({ data: { data: {} } });
+        await installPlugin('server', '123:456', 'hangar');
+        await updatePlugin('server', 1, '123:456', 'hangar');
+        await reinstallPlugin('server', 1, 'hangar');
+        await installPlugin('server', '123:456', 'curseforge');
+        for (const [, body] of jest.mocked(http.post).mock.calls) {
+            expect(body).not.toHaveProperty('include_unreviewed');
+        }
     });
 });

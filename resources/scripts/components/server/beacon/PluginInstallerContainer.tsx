@@ -12,6 +12,11 @@ import Spinner from '@/components/elements/Spinner';
 import Modal from '@/components/elements/Modal';
 import { Dialog } from '@/components/elements/dialog';
 import {
+    DEFAULT_PLUGIN_PROVIDER,
+    pluginRuntimeLabel,
+    velocityProviderNotice,
+} from '@/api/server/beacon/pluginPlatform';
+import {
     PluginContext,
     PluginInstallation,
     PluginInstallPlan,
@@ -51,7 +56,7 @@ const PluginInstallerContainer = () => {
     const serverStatus = ServerContext.useStoreState((state) => state.status.value);
     const { clearFlashes, clearAndAddHttpError, addFlash } = useFlash();
     const [context, setContext] = useState<PluginContext>();
-    const [provider, setProvider] = useState<PluginProvider>('curseforge');
+    const [provider, setProvider] = useState<PluginProvider>(DEFAULT_PLUGIN_PROVIDER);
     const [modalProvider, setModalProvider] = useState<PluginProvider>('curseforge');
     const generation = useRef(0);
     const [installations, setInstallations] = useState<PluginInstallation[]>([]);
@@ -241,25 +246,32 @@ const PluginInstallerContainer = () => {
     };
 
     const loadPlan = async (selected: string, selectedProvider = modalProvider) => {
+        const token = generation.current;
         setVersionId(selected);
         setPlan(undefined);
+        clearFlashes('beacon-plugins');
         if (!selected) return;
         setWorking(true);
         try {
-            setPlan(await getPluginPlan(server.uuid, selected, selectedProvider));
+            const next = await getPluginPlan(server.uuid, selected, selectedProvider);
+            if (token === generation.current) setPlan(next);
         } catch (error) {
-            clearAndAddHttpError({ key: 'beacon-plugins', error });
+            if (token === generation.current) clearAndAddHttpError({ key: 'beacon-plugins', error });
         } finally {
-            setWorking(false);
+            if (token === generation.current) setWorking(false);
         }
     };
 
     const openInstall = async (project: PluginProject) => {
+        const token = generation.current;
         setWorking(true);
         clearFlashes('beacon-plugins');
         try {
             const available = await getPluginVersions(server.uuid, project.id, provider);
-            if (available.length === 0) throw new Error('No compatible version is available for this server.');
+            if (token !== generation.current) return;
+            if (available.length === 0) {
+                throw new Error('No compatible version is available for this server.');
+            }
             setSelectedProject(project);
             setEditing(undefined);
             setVersions(available);
@@ -268,17 +280,19 @@ const PluginInstallerContainer = () => {
             setModalVisible(true);
             await loadPlan(available[0].id, provider);
         } catch (error) {
-            clearAndAddHttpError({ key: 'beacon-plugins', error });
+            if (token === generation.current) clearAndAddHttpError({ key: 'beacon-plugins', error });
         } finally {
-            setWorking(false);
+            if (token === generation.current) setWorking(false);
         }
     };
 
     const openUpdate = async (installation: PluginInstallation) => {
+        const token = generation.current;
         setWorking(true);
         clearFlashes('beacon-plugins');
         try {
             const available = await getPluginVersions(server.uuid, installation.project_id, installation.provider);
+            if (token !== generation.current) return;
             if (available.length === 0) throw new Error('No compatible update is available for this server.');
             setSelectedProject(undefined);
             setEditing(installation);
@@ -288,9 +302,9 @@ const PluginInstallerContainer = () => {
             setModalVisible(true);
             await loadPlan(available[0].id, installation.provider);
         } catch (error) {
-            clearAndAddHttpError({ key: 'beacon-plugins', error });
+            if (token === generation.current) clearAndAddHttpError({ key: 'beacon-plugins', error });
         } finally {
-            setWorking(false);
+            if (token === generation.current) setWorking(false);
         }
     };
 
@@ -321,7 +335,7 @@ const PluginInstallerContainer = () => {
         try {
             const operation =
                 current.action === 'reinstall'
-                    ? await reinstallPlugin(server.uuid, current.installation.id)
+                    ? await reinstallPlugin(server.uuid, current.installation.id, current.installation.provider)
                     : await uninstallPlugin(server.uuid, current.installation.id);
             await awaitOperation(operation);
         } catch (error) {
@@ -354,13 +368,22 @@ const PluginInstallerContainer = () => {
                         : `Install ${selectedProject?.title || 'plugin'}`}
                 </h2>
                 <p css={tw`text-sm text-neutral-300 mb-4`}>
-                    Only versions compatible with Minecraft {context?.game_version} and {context?.loader} are shown.
+                    {context?.loader === 'velocity' && modalProvider !== 'hangar'
+                        ? velocityProviderNotice(context.loader, modalProvider)
+                        : `Only versions declared compatible with ${
+                              context ? pluginRuntimeLabel(context) : 'this server'
+                          } are shown. If none are listed, no eligible release is available.`}
                 </p>
+                <FlashMessageRender byKey={'beacon-plugins'} css={tw`mb-4`} />
                 <Select value={versionId} onChange={(event) => void loadPlan(event.currentTarget.value, modalProvider)}>
                     {versions.map((item, index) => (
                         <option value={item.id} key={item.id}>
-                            {index === 0 ? 'Latest compatible - ' : ''}
-                            {item.name} ({item.version_number})
+                            {index === 0
+                                ? context?.loader === 'velocity' && modalProvider !== 'hangar'
+                                    ? 'Latest listed - '
+                                    : 'Latest compatible - '
+                                : ''}
+                            {item.name} ({item.version_number}){item.review_state === 'reviewed' ? ' [Reviewed]' : ''}
                         </option>
                     ))}
                 </Select>
@@ -374,12 +397,20 @@ const PluginInstallerContainer = () => {
                             <p key={file.version_id} css={tw`text-xs text-neutral-300 mt-1`}>
                                 {file.project_name} - {file.filename}
                                 {file.dependency ? ' (required dependency)' : ''}
+                                {file.review_state === 'reviewed' ? ' — Reviewed' : ''}
                             </p>
                         ))}
                         {plan.optional_dependencies.length > 0 && (
                             <p css={tw`text-xs text-yellow-200 mt-3`}>
                                 {plan.optional_dependencies.length} optional dependency item(s) are not installed
                                 automatically.
+                            </p>
+                        )}
+                        {plan.files.some((file) => file.compatibility === 'provider_metadata') && (
+                            <p css={tw`text-xs text-yellow-200 mt-3`}>
+                                Plugin JAR platform inspection is disabled. File size and checksums are still checked
+                                during installation. Confirm this is a Velocity build; successful loading requires a
+                                server test.
                             </p>
                         )}
                     </div>
@@ -469,8 +500,7 @@ const PluginInstallerContainer = () => {
                                                     : item.provider === 'hangar'
                                                     ? 'Hangar'
                                                     : 'Modrinth'}{' '}
-                                                - {item.version_number || item.version_id} - Minecraft{' '}
-                                                {item.game_version} - {item.loader}
+                                                - {item.version_number || item.version_id} - {pluginRuntimeLabel(item)}
                                             </p>
                                             {item.status === 'disabled' && (
                                                 <p css={tw`text-xs text-yellow-300 mt-1`}>
@@ -520,10 +550,15 @@ const PluginInstallerContainer = () => {
                     <ContentBox title={'Browse plugins'} showLoadingOverlay={working}>
                         <p css={tw`text-xs text-neutral-400 mb-3`}>
                             {provider === 'curseforge' ? 'CurseForge' : provider === 'hangar' ? 'Hangar' : 'Modrinth'} -
-                            Minecraft {context.game_version} - {context.loader}
+                            {pluginRuntimeLabel(context)}
                         </p>
                         {!context.provider_available && (
                             <p css={tw`text-sm text-neutral-200 mb-4`}>{context.provider_unavailable_reason}</p>
+                        )}
+                        {context.provider_available && velocityProviderNotice(context.loader, provider) && (
+                            <p css={tw`text-xs text-neutral-300 mb-3`}>
+                                {velocityProviderNotice(context.loader, provider)}
+                            </p>
                         )}
                         {provider === 'curseforge' && context.provider_available && (
                             <p css={tw`text-xs text-neutral-400 mb-3`}>
@@ -538,7 +573,9 @@ const PluginInstallerContainer = () => {
                                     aria-label={'Provider'}
                                     value={provider}
                                     disabled={working}
-                                    onChange={(event) => setProvider(event.currentTarget.value as PluginProvider)}
+                                    onChange={(event) => {
+                                        setProvider(event.currentTarget.value as PluginProvider);
+                                    }}
                                 >
                                     {context.providers.map((item) => (
                                         <option key={item.id} value={item.id}>
@@ -588,6 +625,11 @@ const PluginInstallerContainer = () => {
                                 </div>
                             </div>
                         </div>
+                        {provider === 'hangar' && !working && projects.length === 0 && (
+                            <p css={tw`text-sm text-neutral-300 mt-4`}>
+                                No eligible releases on this page. Try another search or page.
+                            </p>
+                        )}
                         <div css={tw`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 mt-4`}>
                             {projects.map((item) => (
                                 <button
@@ -608,6 +650,9 @@ const PluginInstallerContainer = () => {
                                     <span css={tw`min-w-0`}>
                                         <span css={tw`block text-sm font-medium text-neutral-100 truncate`}>
                                             {item.title}
+                                            {item.review_state === 'reviewed' && (
+                                                <span css={tw`text-green-300 ml-2 text-xs`}>Reviewed</span>
+                                            )}
                                         </span>
                                         <span css={tw`block text-xs text-neutral-400 mt-1 line-clamp-2`}>
                                             {item.description}
@@ -630,6 +675,9 @@ const PluginInstallerContainer = () => {
                                 Previous
                             </Button>
                             <span css={tw`text-xs text-neutral-400 self-center`}>
+                                {provider === 'hangar'
+                                    ? `${projects.length} eligible on this page · Provider results `
+                                    : ''}
                                 {total === 0 ? 0 : offset + 1}-{Math.min(offset + limit, total)} of {total}
                             </span>
                             <Button

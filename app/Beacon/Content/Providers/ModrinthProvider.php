@@ -23,6 +23,10 @@ class ModrinthProvider implements ContentProvider
         $query = trim($query);
         $typeFacet = $projectType === 'plugin' ? 'all_project_types:plugin' : "project_type:{$projectType}";
         $facets = [[$typeFacet], ["versions:{$gameVersion}"], ["categories:{$loader}"]];
+        if ($projectType === 'plugin' && $loader === 'velocity') {
+            // Modrinth game_versions are Minecraft versions, not proxy versions.
+            $facets = [[$typeFacet], ['categories:velocity']];
+        }
         if (!is_null($category)) {
             $category = trim(strtolower($category));
             if (!in_array($projectType, ['mod', 'plugin'], true) || !in_array($category, config('beacon.' . ($projectType === 'plugin' ? 'plugins' : 'mods') . '.categories', []), true)) {
@@ -70,7 +74,7 @@ class ModrinthProvider implements ContentProvider
         $project = $this->project($projectId);
         $this->assertServerCompatible($project);
         $data = $this->get('/project/' . rawurlencode($projectId) . '/version', [
-            'game_versions' => json_encode([$gameVersion], JSON_THROW_ON_ERROR),
+            ...$this->gameVersionQuery($gameVersion, $loader),
             'loaders' => json_encode([$loader], JSON_THROW_ON_ERROR),
             'include_changelog' => 'false',
         ]);
@@ -90,6 +94,11 @@ class ModrinthProvider implements ContentProvider
         $this->assertServerCompatible($project);
 
         return $this->normalizeVersion($version, $project);
+    }
+
+    protected function gameVersionQuery(string $gameVersion, string $loader): array
+    {
+        return ['game_versions' => json_encode([$gameVersion], JSON_THROW_ON_ERROR)];
     }
 
     private function project(string $projectId): array

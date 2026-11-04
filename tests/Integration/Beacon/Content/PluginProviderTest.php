@@ -90,9 +90,179 @@ class PluginProviderTest extends TestCase
         Http::assertSent(fn ($request) => !$request->hasHeader('Authorization') && !$request->hasHeader('x-api-key'));
     }
 
+    private function velocityVersion(): array
+    {
+        $version = $this->version();
+        $version['downloads']['VELOCITY'] = $version['downloads']['PAPER'];
+        $version['downloads']['VELOCITY']['fileInfo']['name'] = 'velocity-plugin.jar';
+        $version['downloads']['VELOCITY']['fileInfo']['sha256Hash'] = hash('sha256', 'velocity');
+        $version['platformDependencies']['VELOCITY'] = ['4.3.1'];
+        $version['pluginDependencies']['VELOCITY'] = [];
+
+        return $version;
+    }
+
+    public function testHangarVelocityAndPaperFilesOfTheSameReleaseNeverGetMixed(): void
+    {
+        $provider = $this->hangar($this->velocityVersion());
+        $proxy = $provider->version('123:456:velocity');
+        $paper = $provider->version('123:456');
+        $this->assertSame(['velocity'], $proxy['loaders']);
+        $this->assertSame(['4.3.1'], $proxy['game_versions']);
+        $this->assertSame('velocity-plugin.jar', $proxy['file']['filename']);
+        $this->assertSame(hash('sha256', 'velocity'), $proxy['file']['sha256']);
+        $this->assertSame(['paper'], $paper['loaders']);
+        $this->assertSame('plugin.jar', $paper['file']['filename']);
+        $plan = (new DependencyPlanner($provider))->handle('123:456:velocity', '4.3.1', 'velocity', 'plugin', 'hangar', $provider);
+        $this->assertSame('123:456:velocity', $plan['files'][0]['version_id']);
+    }
+
+    public function testPaperVersionIdCannotBePlannedForVelocity(): void
+    {
+        $provider = $this->hangar($this->velocityVersion());
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\ConflictHttpException::class);
+        (new DependencyPlanner($provider))->handle('123:456', '4.3.1', 'velocity', 'plugin', 'hangar', $provider);
+    }
+
+    public function testVelocityDoesNotFallBackToPaperWhenItsDownloadIsMissing(): void
+    {
+        $provider = $this->hangar($this->version());
+        $this->expectException(ProviderResponseException::class);
+        $provider->version('123:456:velocity');
+    }
+
+    public function testVelocityListsReviewedAndUnreviewedExactPlatformVersionsAndTagsItsIds(): void
+    {
+        $valid = $this->velocityVersion();
+        $unreviewed = $valid;
+        $unreviewed['id'] = 457;
+        $unreviewed['reviewState'] = 'unreviewed';
+        $wrong = $valid;
+        $wrong['platformDependencies']['VELOCITY'] = ['4.2.1'];
+        Http::fake([
+            'hangar.papermc.io/api/v1/projects/123' => Http::response($this->project()),
+            'hangar.papermc.io/api/v1/projects/123/versions?*' => Http::response(['result' => [$valid, $unreviewed, $wrong]]),
+            'hangar.papermc.io/api/v1/projects/123/versions/456' => Http::response($valid),
+            'hangar.papermc.io/api/v1/projects/123/versions/457' => Http::response($unreviewed),
+        ]);
+        $versions = (new HangarPluginProvider())->versions('123', '4.3.1', 'velocity');
+        $this->assertSame(['123:456:velocity', '123:457:velocity'], array_column($versions, 'id'));
+        $this->assertSame(['reviewed', 'unreviewed'], array_column($versions, 'review_state'));
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'platform=VELOCITY') && str_contains($request->url(), 'platformVersion=4.3.1'));
+    }
+
+    public function testUnreviewedVelocityExactSelectionIsAvailableWithoutAFlag(): void
+    {
+        $version = $this->velocityVersion();
+        $version['reviewState'] = 'unreviewed';
+        $provider = $this->hangar($version);
+        $this->assertSame('unreviewed', $provider->version('123:456:velocity')['review_state']);
+    }
+
+    public function testFreshProviderInstancesShareRawMetadataWithoutChangingItsReviewLabel(): void
+    {
+        $version = $this->velocityVersion();
+        $version['reviewState'] = 'unreviewed';
+        $provider = $this->hangar($version);
+        $this->assertSame('unreviewed', $provider->version('123:456:velocity')['review_state']);
+        $this->assertSame('unreviewed', (new HangarPluginProvider())->version('123:456:velocity')['review_state']);
+    }
+
+    #[DataProvider('unsafeHangar')]
+    public function testUnreviewedFilesStillEnforceOtherDownloadPolicies(string $key, mixed $value): void
+    {
+        $version = $this->version();
+        $version['reviewState'] = 'unreviewed';
+        data_set($version, $key, $key === 'reviewState' ? 'rejected' : $value);
+        $provider = $this->hangar($version);
+        $this->expectException(ProviderResponseException::class);
+        $provider->version('123:456');
+    }
+
+    public function testSearchIncludesBothReviewStatesWithoutChangingProviderPagination(): void
+    {
+        $reviewed = $this->project();
+        $reviewed['supportedPlatforms'] = ['PAPER' => ['1.20.1']];
+        $unreviewed = $reviewed;
+        $unreviewed['id'] = 124;
+        $unreviewedVersion = $this->version();
+        $unreviewedVersion['projectId'] = 124;
+        $unreviewedVersion['reviewState'] = 'unreviewed';
+        Http::fake([
+            'hangar.papermc.io/api/v1/projects?*' => Http::response(['result' => [$reviewed, $unreviewed], 'pagination' => ['count' => 2]]),
+            'hangar.papermc.io/api/v1/projects/123/versions?*' => Http::response(['result' => [$this->version()]]),
+            'hangar.papermc.io/api/v1/projects/124/versions?*' => Http::response(['result' => [$unreviewedVersion]]),
+            'hangar.papermc.io/api/v1/projects/123/versions/456' => Http::response($this->version()),
+            'hangar.papermc.io/api/v1/projects/124/versions/456' => Http::response($unreviewedVersion),
+        ]);
+        $provider = new HangarPluginProvider();
+        $default = $provider->search('', '1.20.1', 'paper', 'plugin');
+        $this->assertSame(['123', '124'], array_column($default['projects'], 'id'));
+        $this->assertSame(2, $default['total']);
+        $this->assertTrue($default['page_filtered']);
+        $this->assertSame(['reviewed', 'unreviewed'], array_column($default['projects'], 'review_state'));
+    }
+
+    public function testReviewFilteringNeverFallsBackToUnverifiedResultsAfterItsDeadline(): void
+    {
+        Http::fake();
+        $this->expectException(ProviderResponseException::class);
+        (new \ReflectionMethod(HangarPluginProvider::class, 'get'))->invoke(new HangarPluginProvider(), '/projects', [], microtime(true) - 1);
+    }
+
+    public function testRequiredUnreviewedDependenciesAreIncludedAndRetainTheirMetadata(): void
+    {
+        $root = $this->version();
+        $root['pluginDependencies']['PAPER'] = [['projectId' => 124, 'required' => true]];
+        $dependency = $this->version();
+        $dependency['id'] = 457;
+        $dependency['projectId'] = 124;
+        $dependency['reviewState'] = 'unreviewed';
+        $dependency['downloads']['PAPER']['fileInfo']['name'] = 'dependency.jar';
+        $project = $this->project();
+        $project['id'] = 124;
+        Http::fake([
+            'hangar.papermc.io/api/v1/projects/123' => Http::response($this->project()),
+            'hangar.papermc.io/api/v1/projects/124' => Http::response($project),
+            'hangar.papermc.io/api/v1/projects/123/versions/456' => Http::response($root),
+            'hangar.papermc.io/api/v1/projects/124/versions/457' => Http::response($dependency),
+            'hangar.papermc.io/api/v1/projects/124/versions?*' => Http::response(['result' => [$dependency]]),
+        ]);
+        $provider = new HangarPluginProvider();
+        $plan = (new DependencyPlanner($provider))->handle('123:456', '1.20.1', 'paper', 'plugin', 'hangar', $provider);
+        $this->assertSame(['reviewed', 'unreviewed'], array_column($plan['files'], 'review_state'));
+        $this->assertTrue($plan['files'][1]['dependency']);
+    }
+
+    public function testSelectedFilePlanUsesExactDetailReviewRatherThanCopyingTheSearchListStatus(): void
+    {
+        $listing = $this->velocityVersion();
+        $listing['reviewState'] = 'unreviewed';
+        Http::fake([
+            'hangar.papermc.io/api/v1/projects/123' => Http::response($this->project()),
+            'hangar.papermc.io/api/v1/projects/123/versions?*' => Http::response(['result' => [$listing]]),
+            'hangar.papermc.io/api/v1/projects/123/versions/456' => Http::response($this->velocityVersion()),
+        ]);
+        $provider = new HangarPluginProvider();
+        $this->assertSame('reviewed', $provider->versions('123', '4.3.1', 'velocity')[0]['review_state']);
+        $plan = (new DependencyPlanner($provider))->handle('123:456:velocity', '4.3.1', 'velocity', 'plugin', 'hangar', $provider);
+        $this->assertSame('reviewed', $plan['files'][0]['review_state']);
+        $this->assertSame('reviewed', (new HangarPluginProvider())->version('123:456:velocity')['review_state']);
+    }
+
+    #[DataProvider('unsafeHangar')]
+    public function testVelocityEnforcesTheSameDownloadAndDependencyPolicy(string $key, mixed $value): void
+    {
+        $version = $this->velocityVersion();
+        data_set($version, str_replace('PAPER', 'VELOCITY', $key), $value);
+        $provider = $this->hangar($version);
+        $this->expectException(ProviderResponseException::class);
+        $provider->version('123:456:velocity');
+    }
+
     public static function unsafeHangar(): array
     {
-        return [['projectId', 999], ['visibility', 'hidden'], ['reviewState', 'unreviewed'],
+        return [['projectId', 999], ['visibility', 'hidden'], ['reviewState', 'rejected'],
             ['downloads.PAPER.externalUrl', 'https://external.invalid/plugin.jar'],
             ['downloads.PAPER.downloadUrl', 'http://127.0.0.1/plugin.jar'],
             ['downloads.PAPER.downloadUrl', 'https://hangarcdn.papermc.io.evil.invalid/plugin.jar'],

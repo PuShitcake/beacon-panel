@@ -20,10 +20,38 @@ class PluginProviderRegistry
         };
     }
 
-    public function describe(): array
+    public function describe(?string $loader = null): array
     {
-        return [['id' => 'curseforge', 'name' => 'CurseForge', 'available' => $this->curseforge->isConfigured()],
-            ['id' => 'modrinth', 'name' => 'Modrinth', 'available' => true], ['id' => 'hangar', 'name' => 'Hangar', 'available' => true]];
+        return array_map(fn (array $provider) => array_merge($provider, [
+            'available' => $provider['available'] && $this->unavailableReason($provider['id'], $loader) === null,
+            'unavailable_reason' => $this->unavailableReason($provider['id'], $loader),
+        ]), [['id' => 'curseforge', 'name' => 'CurseForge', 'available' => $this->curseforge->isConfigured()],
+            ['id' => 'modrinth', 'name' => 'Modrinth', 'available' => true], ['id' => 'hangar', 'name' => 'Hangar', 'available' => true]]);
+    }
+
+    public function unavailableReason(string $key, ?string $loader): ?string
+    {
+        if ($key === 'hangar' && $loader !== null && !in_array($loader, ['paper', 'velocity'], true)) {
+            return 'Hangar supports Paper and Velocity plugins for this installer.';
+        }
+
+        return null;
+    }
+
+    public function forPlatform(string $key, string $loader): ContentProvider
+    {
+        if ($reason = $this->unavailableReason($key, $loader)) {
+            throw new ProviderResponseException($reason);
+        }
+
+        if ($loader === 'velocity' && $key === 'modrinth') {
+            return $this->modrinth->withVelocity();
+        }
+        if ($loader === 'velocity' && $key === 'curseforge') {
+            return $this->curseforge->withVelocity();
+        }
+
+        return $this->get($key);
     }
 
     public function categories(string $key): array
