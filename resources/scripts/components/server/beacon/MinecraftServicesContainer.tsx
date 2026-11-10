@@ -10,6 +10,9 @@ import Button from '@/components/elements/Button';
 import Spinner from '@/components/elements/Spinner';
 import Modal from '@/components/elements/Modal';
 import { Link } from 'react-router-dom';
+import BedrockConsoleHelp from '@/components/server/beacon/BedrockConsoleHelp';
+import { minecraftServiceView } from '@/components/server/beacon/minecraftServiceView';
+import { velocirconSetupLink } from '@/api/server/beacon/velocityRconSetup';
 import {
     getMinecraftServiceOperation,
     getMinecraftServicesContext,
@@ -138,7 +141,9 @@ const MinecraftServicesContainer = () => {
 
     const busy = !!active && ['pending', 'running'].includes(active.status);
 
-    if (context?.supported === false) return null;
+    const view = minecraftServiceView(context);
+    if (view === 'bedrock-console') return <BedrockConsoleHelp serverId={serverId} />;
+    if (view === 'hidden') return null;
 
     return (
         <>
@@ -160,8 +165,8 @@ const MinecraftServicesContainer = () => {
                             <div css={tw`text-sm text-neutral-200 mb-5`}>
                                 <p>{context.rcon.unavailable_reason}</p>
                                 {context.required_plugin && (
-                                    <Link css={tw`text-cyan-300 inline-block mt-2`} to={`/server/${serverId}/plugins`}>
-                                        Open Plugin Installer
+                                    <Link css={tw`text-cyan-300 inline-block mt-2`} to={velocirconSetupLink(serverId)}>
+                                        Download Velocircon plugin
                                     </Link>
                                 )}
                             </div>

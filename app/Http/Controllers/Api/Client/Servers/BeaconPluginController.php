@@ -19,6 +19,7 @@ use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
 use Pterodactyl\Beacon\Minecraft\ServerSoftwareCapabilityService;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Pterodactyl\Beacon\Content\Exceptions\ProviderResponseException;
+use Pterodactyl\Beacon\Content\Exceptions\UnverifiableFileException;
 use Pterodactyl\Http\Requests\Api\Client\Servers\BeaconPluginRequest;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
@@ -118,11 +119,19 @@ class BeaconPluginController extends ClientApiController
     {
         $runtime = $this->pluginRuntime($server);
 
-        $versions = $this->providerCall(fn () => $this->providers->forPlatform($this->providerKey($request), $runtime['loader'])->versions(
-            $projectId,
-            $runtime['game_version'],
-            $runtime['loader'],
-        ));
+        try {
+            $versions = $this->providers->forPlatform($this->providerKey($request), $runtime['loader'])->versions(
+                $projectId,
+                $runtime['game_version'],
+                $runtime['loader'],
+            );
+        } catch (UnverifiableFileException) {
+            // An expected browse limitation, not an installation failure. Exact-file
+            // planning and installation still reject missing or ambiguous checksums.
+            return new JsonResponse(['data' => [], 'unavailable_reason' => 'No installable version is available. CurseForge did not provide the file checksum required for verification. Try another plugin or provider.']);
+        } catch (ProviderResponseException $exception) {
+            throw new HttpException(422, $exception->getMessage(), $exception);
+        }
 
         $provider = $this->providerKey($request);
 

@@ -157,16 +157,22 @@ export const searchPlugins = async (
     return data.data;
 };
 
+export const getPluginVersionOptions = async (
+    server: string,
+    project: string,
+    provider: PluginProvider = 'curseforge'
+): Promise<{ versions: PluginVersion[]; unavailableReason: string | null }> => {
+    const { data } = await http.get(`${base(server)}/projects/${encodeURIComponent(project)}/versions`, {
+        params: { provider },
+    });
+    return { versions: data.data, unavailableReason: data.unavailable_reason || null };
+};
+
 export const getPluginVersions = async (
     server: string,
     project: string,
     provider: PluginProvider = 'curseforge'
-): Promise<PluginVersion[]> => {
-    const { data } = await http.get(`${base(server)}/projects/${encodeURIComponent(project)}/versions`, {
-        params: { provider },
-    });
-    return data.data;
-};
+): Promise<PluginVersion[]> => (await getPluginVersionOptions(server, project, provider)).versions;
 
 export const getPluginPlan = async (
     server: string,

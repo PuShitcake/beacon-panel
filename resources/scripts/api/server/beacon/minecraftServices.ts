@@ -38,8 +38,9 @@ export interface MinecraftServicesContext {
     query: MinecraftServiceState;
     active_operation: MinecraftServiceOperation | null;
     supported?: boolean;
+    console_only?: boolean;
     configuration_driver?: 'java' | 'velocircon' | null;
-    required_plugin?: { name: string; version: string; provider: string } | null;
+    required_plugin?: { name: string; version: string; provider: string; project_id?: string } | null;
 }
 
 const base = (server: string) => `/api/client/servers/${server}/beacon/minecraft-services`;

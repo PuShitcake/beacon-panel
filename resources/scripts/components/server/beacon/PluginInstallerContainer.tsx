@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import tw from 'twin.macro';
 import { ServerContext } from '@/state/server';
 import useFlash from '@/plugins/useFlash';
@@ -11,6 +12,8 @@ import Button from '@/components/elements/Button';
 import Spinner from '@/components/elements/Spinner';
 import Modal from '@/components/elements/Modal';
 import { Dialog } from '@/components/elements/dialog';
+import { getMinecraftServicesContext } from '@/api/server/beacon/minecraftServices';
+import { consumeVelocirconSetup, isVelocirconSetup, selectSetupVersions } from '@/api/server/beacon/velocityRconSetup';
 import {
     DEFAULT_PLUGIN_PROVIDER,
     pluginRuntimeLabel,
@@ -29,7 +32,7 @@ import {
     getPluginInstallations,
     getPluginOperation,
     getPluginPlan,
-    getPluginVersions,
+    getPluginVersionOptions,
     installPlugin,
     reinstallPlugin,
     searchPlugins,
@@ -52,13 +55,18 @@ const retryablePollError = (error: unknown) => {
 };
 
 const PluginInstallerContainer = () => {
+    const location = useLocation();
+    const routerHistory = useHistory();
     const server = ServerContext.useStoreState((state) => state.server.data!);
     const serverStatus = ServerContext.useStoreState((state) => state.status.value);
     const { clearFlashes, clearAndAddHttpError, addFlash } = useFlash();
     const [context, setContext] = useState<PluginContext>();
-    const [provider, setProvider] = useState<PluginProvider>(DEFAULT_PLUGIN_PROVIDER);
+    const [provider, setProvider] = useState<PluginProvider>(() =>
+        isVelocirconSetup(location.state) ? 'modrinth' : DEFAULT_PLUGIN_PROVIDER
+    );
     const [modalProvider, setModalProvider] = useState<PluginProvider>('curseforge');
     const generation = useRef(0);
+    const setupAttempt = useRef<string>();
     const [installations, setInstallations] = useState<PluginInstallation[]>([]);
     const [history, setHistory] = useState<PluginOperation[]>([]);
     const [projects, setProjects] = useState<PluginProject[]>([]);
@@ -74,6 +82,8 @@ const PluginInstallerContainer = () => {
     const [modalMode, setModalMode] = useState<ModalMode>('install');
     const [editing, setEditing] = useState<PluginInstallation>();
     const [modalVisible, setModalVisible] = useState(false);
+    const [velocirconSetup, setVelocirconSetup] = useState(false);
+    const [versionNotice, setVersionNotice] = useState<{ title: string; message: string }>();
     const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
     const [active, setActive] = useState<PluginOperation | null>(null);
     const [loading, setLoading] = useState(true);
@@ -141,6 +151,7 @@ const PluginInstallerContainer = () => {
         setWorking(true);
         clearFlashes('beacon-plugins');
         try {
+            setVersionNotice(undefined);
             const result = await searchPlugins(server.uuid, searchQuery.trim(), nextOffset, selectedCategory, provider);
             if (token !== generation.current) return;
             setProjects(result.projects);
@@ -165,6 +176,8 @@ const PluginInstallerContainer = () => {
         setLimit(20);
         setProjects([]);
         setModalVisible(false);
+        setVelocirconSetup(false);
+        setVersionNotice(undefined);
         setPlan(undefined);
         clearFlashes('beacon-plugins');
         reload(token)
@@ -262,20 +275,32 @@ const PluginInstallerContainer = () => {
         }
     };
 
-    const openInstall = async (project: PluginProject) => {
+    const openInstall = async (project: PluginProject, requiredVersion?: string) => {
         const token = generation.current;
         setWorking(true);
+        setVersionNotice(undefined);
+        setPlan(undefined);
+        setVersionId('');
+        setModalVisible(false);
         clearFlashes('beacon-plugins');
         try {
-            const available = await getPluginVersions(server.uuid, project.id, provider);
+            const result = await getPluginVersionOptions(server.uuid, project.id, provider);
+            const available = requiredVersion
+                ? selectSetupVersions(result.versions, project.id, requiredVersion)
+                : result.versions;
             if (token !== generation.current) return;
             if (available.length === 0) {
-                throw new Error('No compatible version is available for this server.');
+                setVersionNotice({
+                    title: project.title,
+                    message: result.unavailableReason || 'No compatible version is available for this server.',
+                });
+                return;
             }
             setSelectedProject(project);
             setEditing(undefined);
             setVersions(available);
             setModalMode('install');
+            setVelocirconSetup(requiredVersion !== undefined);
             setModalProvider(provider);
             setModalVisible(true);
             await loadPlan(available[0].id, provider);
@@ -289,15 +314,27 @@ const PluginInstallerContainer = () => {
     const openUpdate = async (installation: PluginInstallation) => {
         const token = generation.current;
         setWorking(true);
+        setVersionNotice(undefined);
+        setPlan(undefined);
+        setVersionId('');
+        setModalVisible(false);
         clearFlashes('beacon-plugins');
         try {
-            const available = await getPluginVersions(server.uuid, installation.project_id, installation.provider);
+            const result = await getPluginVersionOptions(server.uuid, installation.project_id, installation.provider);
+            const available = result.versions;
             if (token !== generation.current) return;
-            if (available.length === 0) throw new Error('No compatible update is available for this server.');
+            if (available.length === 0) {
+                setVersionNotice({
+                    title: installation.project_name || installation.filename,
+                    message: result.unavailableReason || 'No compatible update is available for this server.',
+                });
+                return;
+            }
             setSelectedProject(undefined);
             setEditing(installation);
             setVersions(available);
             setModalMode('update');
+            setVelocirconSetup(false);
             setModalProvider(installation.provider);
             setModalVisible(true);
             await loadPlan(available[0].id, installation.provider);
@@ -307,6 +344,73 @@ const PluginInstallerContainer = () => {
             if (token === generation.current) setWorking(false);
         }
     };
+
+    useEffect(() => {
+        if (!isVelocirconSetup(location.state)) return;
+        if (provider !== 'modrinth') {
+            setProvider('modrinth');
+            return;
+        }
+        if (loading || working || !context || context.provider !== provider) return;
+        const attempt = `${server.uuid}:${location.key || location.pathname}`;
+        if (setupAttempt.current === attempt) return;
+        setupAttempt.current = attempt;
+        // TransitionRouter keys pages by pathname + search. Consume only route state so
+        // this preview is not unmounted while its read-only requests are still loading.
+        routerHistory.replace({ ...location, state: consumeVelocirconSetup(location.state) });
+        if (!context.enabled || context.loader !== 'velocity' || !context.provider_available || mutationBlocked) {
+            addFlash({
+                key: 'beacon-plugins',
+                type: 'error',
+                message:
+                    'Velocircon setup requires an available Velocity Plugin Installer with no operation in progress.',
+            });
+            return;
+        }
+        const token = generation.current;
+        setWorking(true);
+        getMinecraftServicesContext(server.uuid)
+            .then(async (services) => {
+                if (token !== generation.current) return;
+                const required = services.required_plugin;
+                if (
+                    services.configuration_driver !== 'velocircon' ||
+                    required?.provider !== 'modrinth' ||
+                    !required.project_id ||
+                    !required.version
+                ) {
+                    throw new Error('Velocircon setup information is unavailable. Refresh Settings before retrying.');
+                }
+                if (
+                    installations.some(
+                        (item) => item.provider === required.provider && item.project_id === required.project_id
+                    )
+                ) {
+                    throw new Error(
+                        'Velocircon is already installed. Start Velocity once or use the existing plugin controls.'
+                    );
+                }
+                await openInstall(
+                    {
+                        id: required.project_id,
+                        slug: null,
+                        title: required.name,
+                        description: '',
+                        author: '',
+                        icon_url: null,
+                        downloads: 0,
+                        server_side: 'required',
+                    },
+                    required.version
+                );
+            })
+            .catch((error) => {
+                if (token === generation.current) clearAndAddHttpError({ key: 'beacon-plugins', error });
+            })
+            .finally(() => {
+                if (token === generation.current) setWorking(false);
+            });
+    }, [server.uuid, provider, loading, working, context, location.key, location.state]);
 
     const submit = async () => {
         if (!versionId || !plan || mutationBlocked) return;
@@ -350,6 +454,11 @@ const PluginInstallerContainer = () => {
     return (
         <ServerContentBlock title={'Plugin Installer'}>
             <FlashMessageRender byKey={'beacon-plugins'} css={tw`mb-4`} />
+            {versionNotice && (
+                <ContentBox title={versionNotice.title} css={tw`mb-6`}>
+                    <p css={tw`text-sm text-neutral-300`}>{versionNotice.message}</p>
+                </ContentBox>
+            )}
             {refreshRequired && (
                 <ContentBox title={'Refresh required'} css={tw`mb-6`}>
                     <p css={tw`text-sm text-neutral-200 mb-3`}>
@@ -363,7 +472,9 @@ const PluginInstallerContainer = () => {
             )}
             <Modal visible={modalVisible} onDismissed={() => setModalVisible(false)} showSpinnerOverlay={working}>
                 <h2 css={tw`text-xl text-neutral-100 font-medium mb-2`}>
-                    {modalMode === 'update'
+                    {velocirconSetup
+                        ? 'Download Velocircon plugin'
+                        : modalMode === 'update'
                         ? `Update ${editing?.project_name || editing?.filename}`
                         : `Install ${selectedProject?.title || 'plugin'}`}
                 </h2>
@@ -424,7 +535,11 @@ const PluginInstallerContainer = () => {
                         Cancel
                     </Button>
                     <Button type={'button'} color={'green'} onClick={submit} disabled={!plan || mutationBlocked}>
-                        {modalMode === 'update' ? 'Update plugin' : 'Install plugin'}
+                        {velocirconSetup
+                            ? 'Download plugin'
+                            : modalMode === 'update'
+                            ? 'Update plugin'
+                            : 'Install plugin'}
                     </Button>
                 </div>
             </Modal>

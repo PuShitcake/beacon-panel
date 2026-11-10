@@ -41,4 +41,28 @@ class MinecraftServiceRuntimeTest extends TestCase
         $this->expectException(ConflictHttpException::class);
         (new MinecraftServiceConfiguration($files))->assertSupported($this->server('Velocity'), 'query');
     }
+
+    public function testOnlyBeaconVanillaBedrockUsesConsoleGuidance(): void
+    {
+        $this->assertTrue(MinecraftServiceConfiguration::usesBedrockConsole($this->server('Vanilla Bedrock')));
+        foreach ([$this->server('Vanilla Bedrock', 'Minecraft'), $this->server('Velocity'), $this->server('Paper'), $this->server('Unknown')] as $server) {
+            $this->assertFalse(MinecraftServiceConfiguration::usesBedrockConsole($server));
+        }
+        $this->assertNull(MinecraftServiceConfiguration::driver($this->server('Vanilla Bedrock')));
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('bedrockServices')]
+    public function testBedrockGuidanceCannotEnableNetworkServices(string $service): void
+    {
+        $files = \Mockery::mock(DaemonFileRepository::class);
+        $files->shouldNotReceive('getContent');
+        $files->shouldNotReceive('putContent');
+        $this->expectException(ConflictHttpException::class);
+        (new MinecraftServiceConfiguration($files))->assertSupported($this->server('Vanilla Bedrock'), $service);
+    }
+
+    public static function bedrockServices(): array
+    {
+        return [['rcon'], ['query']];
+    }
 }

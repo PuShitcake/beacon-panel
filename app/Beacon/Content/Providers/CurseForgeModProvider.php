@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Client\ConnectionException;
 use Pterodactyl\Beacon\Content\Exceptions\ProviderResponseException;
+use Pterodactyl\Beacon\Content\Exceptions\UnverifiableFileException;
 
 /** Individual Minecraft mods only. Never uses modpack files or an unofficial download proxy. */
 class CurseForgeModProvider implements ContentProvider
@@ -183,7 +184,7 @@ class CurseForgeModProvider implements ContentProvider
         $hashes = array_values(array_filter($file['hashes'], fn ($hash) => is_array($hash) && ($hash['algo'] ?? null) === 1));
         $sha1 = count($hashes) === 1 ? ($hashes[0]['value'] ?? null) : null;
         if (!is_string($sha1) || !preg_match('/^[a-fA-F0-9]{40}$/D', $sha1)) {
-            throw new ProviderResponseException('CurseForge did not provide an unambiguous SHA-1 file hash.');
+            throw new UnverifiableFileException('CurseForge did not provide an unambiguous SHA-1 file hash.');
         }
         $dependencies = [];
         foreach ($file['dependencies'] ?? [] as $dependency) {

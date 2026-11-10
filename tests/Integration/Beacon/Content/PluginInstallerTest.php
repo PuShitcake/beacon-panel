@@ -219,6 +219,92 @@ class PluginInstallerTest extends TestCase
         $this->runtime->assertOperationRuntime($this->server(), $runtime);
     }
 
+    public static function unverifiablePluginHashes(): array
+    {
+        $cases = [
+            'missing' => [],
+            'md5-only' => [['algo' => 2, 'value' => str_repeat('a', 32)]],
+            'malformed' => [['algo' => 1, 'value' => 'invalid']],
+            'ambiguous' => [['algo' => 1, 'value' => str_repeat('a', 40)], ['algo' => 1, 'value' => str_repeat('b', 40)]],
+        ];
+        $result = [];
+        foreach ([false, true] as $velocity) {
+            foreach ($cases as $label => $hashes) {
+                $result[($velocity ? 'velocity-' : 'paper-') . $label] = [$velocity, $hashes];
+            }
+        }
+
+        return $result;
+    }
+
+    private function checksumFixture(array $hashes): void
+    {
+        config()->set('beacon.modpacks.providers.curseforge.enabled', true);
+        config()->set('beacon.modpacks.providers.curseforge.api_key', 'fixture-not-a-real-key');
+        $file = ['id' => 456, 'modId' => 123, 'isAvailable' => true, 'fileStatus' => 4, 'releaseType' => 1,
+            'fileName' => 'plugin.jar', 'fileLength' => 7, 'displayName' => 'Release', 'fileDate' => '2026-01-01',
+            'gameVersions' => ['1.20.1'], 'dependencies' => [], 'hashes' => $hashes,
+            'downloadUrl' => 'https://edge.forgecdn.net/files/1/2/plugin.jar'];
+        Http::fake([
+            'api.curseforge.com/v1/mods/123' => Http::response(['data' => ['id' => 123, 'gameId' => 432, 'classId' => 5, 'isAvailable' => true, 'name' => 'Fixture']]),
+            'api.curseforge.com/v1/mods/123/files?*' => Http::response(['data' => [$file]]),
+            'api.curseforge.com/v1/mods/123/files/456' => Http::response(['data' => $file]),
+        ]);
+    }
+
+    #[DataProvider('unverifiablePluginHashes')]
+    public function testUnverifiablePluginVersionsReturnAnOrdinaryExplanationButCannotBePlanned(bool $velocity, array $hashes): void
+    {
+        if ($velocity) {
+            $this->velocity();
+        }
+        $this->checksumFixture($hashes);
+        $controller = app(BeaconPluginController::class);
+        $response = $controller->versions($this->request('GET', ['provider' => 'curseforge']), $this->server(), '123');
+        $this->assertSame(200, $response->getStatusCode());
+        $data = $response->getData(true);
+        $this->assertSame([], $data['data']);
+        $this->assertStringContainsString('file checksum required for verification', $data['unavailable_reason']);
+        $this->assertArrayNotHasKey('errors', $data);
+        $this->assertStringNotContainsString('SHA-1', json_encode($data));
+        $this->assertStringNotContainsString('https://', json_encode($data));
+        $this->assertSame(0, BeaconOperation::count());
+        Bus::assertNothingDispatched();
+        try {
+            $controller->plan($this->request('GET', ['provider' => 'curseforge', 'version_id' => '123:456' . ($velocity ? ':velocity' : '')]), $this->server());
+            $this->fail('An unverifiable exact file must still be rejected.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+            $this->assertSame(422, $exception->getStatusCode());
+        }
+        Http::assertNotSent(fn ($r) => str_contains($r->url(), 'forgecdn.net'));
+    }
+
+    public function testVerifiedPluginVersionsRemainSelectableAndDoNotExposeDownloadUrls(): void
+    {
+        $this->checksumFixture([['algo' => 1, 'value' => str_repeat('a', 40)]]);
+        $response = app(BeaconPluginController::class)->versions($this->request('GET', ['provider' => 'curseforge']), $this->server(), '123');
+        $data = $response->getData(true);
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertCount(1, $data['data']);
+        $this->assertSame(str_repeat('a', 40), $data['data'][0]['file']['sha1']);
+        $this->assertArrayNotHasKey('url', $data['data'][0]['file']);
+        $this->assertArrayNotHasKey('unavailable_reason', $data);
+    }
+
+    public function testProviderOutagesAreNotDisguisedAsChecksumExplanations(): void
+    {
+        config()->set('beacon.modpacks.providers.curseforge.enabled', true);
+        config()->set('beacon.modpacks.providers.curseforge.api_key', 'fixture-not-a-real-key');
+        Http::fake(['*' => Http::response('PRIVATE_PROVIDER_BODY', 503)]);
+        try {
+            app(BeaconPluginController::class)->versions($this->request('GET', ['provider' => 'curseforge']), $this->server(), '123');
+            $this->fail('An outage must remain an error.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+            $this->assertSame(422, $exception->getStatusCode());
+            $this->assertStringNotContainsString('PRIVATE', $exception->getMessage());
+        }
+    }
+
     public function testVelocityDoesNotGuessMissingVersionMetadata(): void
     {
         $this->velocity(null);

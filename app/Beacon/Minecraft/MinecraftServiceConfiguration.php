@@ -33,6 +33,14 @@ class MinecraftServiceConfiguration
         };
     }
 
+    public static function usesBedrockConsole(Server $server): bool
+    {
+        $server->loadMissing('egg.nest');
+
+        return $server->egg?->nest?->name === config('beacon.modpacks.nest.name', 'Beacon')
+            && strtolower(trim($server->egg->name)) === 'vanilla bedrock';
+    }
+
     public function assertSupported(Server $server, string $service): void
     {
         $driver = self::driver($server);
