@@ -51,6 +51,10 @@ class PublicOperationError
         'The Minecraft service change failed and rollback also failed. Manual review is required.',
         'Automatic rollback requires the server to be offline. It was left for manual review.',
         'The previous Minecraft service allocation is unavailable for rollback.',
+        'The Minecraft service runtime changed. No new service settings were written.',
+        'The Velocity RCON listener cannot be verified because its managed state changed.',
+        'Velocity started but its RCON listener could not be authenticated. Review the plugin and network configuration.',
+        'The service runtime changed. Automatic rollback cannot overwrite a different configuration format.',
     ];
 
     public static function message(\Throwable $exception, string $fallback): string

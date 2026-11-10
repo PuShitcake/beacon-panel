@@ -12,6 +12,9 @@ export interface MinecraftServiceState {
     port: number | null;
     password_configured: boolean;
     drift: string | null;
+    available?: boolean;
+    unavailable_reason?: string | null;
+    can_disable?: boolean;
 }
 
 export interface MinecraftServiceOperation {
@@ -34,6 +37,9 @@ export interface MinecraftServicesContext {
     rcon: MinecraftServiceState;
     query: MinecraftServiceState;
     active_operation: MinecraftServiceOperation | null;
+    supported?: boolean;
+    configuration_driver?: 'java' | 'velocircon' | null;
+    required_plugin?: { name: string; version: string; provider: string } | null;
 }
 
 const base = (server: string) => `/api/client/servers/${server}/beacon/minecraft-services`;

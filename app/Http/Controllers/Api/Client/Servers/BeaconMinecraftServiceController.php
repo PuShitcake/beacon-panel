@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Pterodactyl\Models\BeaconOperation;
 use Pterodactyl\Models\BeaconMinecraftService;
+use Pterodactyl\Beacon\Minecraft\VelocityRconConfiguration;
 use Pterodactyl\Beacon\Minecraft\MinecraftServiceConfiguration;
 use Pterodactyl\Beacon\Operations\StartContentOperationService;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
@@ -28,12 +29,30 @@ class BeaconMinecraftServiceController extends ClientApiController
 
     public function context(BeaconMinecraftServiceRequest $request, Server $server): JsonResponse
     {
-        $this->ensureEligible($server);
+        $driver = MinecraftServiceConfiguration::driver($server);
         $settings = BeaconMinecraftService::query()
-            ->with(['rconAllocation', 'queryAllocation'])
+            ->with(['rconAllocation', 'queryAllocation', 'lastOperation'])
             ->where('server_id', $server->id)
             ->first();
-        $properties = $this->configuration->inspect($server);
+        $properties = [];
+        $unavailable = $driver === null ? 'This server does not support the RCON & Query Manager.' : null;
+        if ($driver !== null) {
+            try {
+                $properties = $this->configuration->inspect($server);
+            } catch (ConflictHttpException $exception) {
+                if ($driver !== 'velocircon') {
+                    throw $exception;
+                }
+                $unavailable = $exception->getMessage();
+                if ($settings?->rcon_enabled) {
+                    try {
+                        $properties = $this->configuration->inspect($server, false);
+                    } catch (ConflictHttpException) {
+                        // Never blindly rewrite missing or malformed configuration.
+                    }
+                }
+            }
+        }
         $active = BeaconOperation::query()
             ->where('server_id', $server->id)
             ->where('type', 'like', 'minecraft-service.%')
@@ -45,8 +64,11 @@ class BeaconMinecraftServiceController extends ClientApiController
             'enabled' => (bool) config('beacon.minecraft_services.enabled'),
             'authorized' => true,
             'automatic_power' => true,
-            'rcon' => $this->serviceData($server, $settings, $properties, 'rcon'),
-            'query' => $this->serviceData($server, $settings, $properties, 'query'),
+            'supported' => $driver !== null,
+            'configuration_driver' => $driver,
+            'required_plugin' => $driver === 'velocircon' ? ['name' => 'Velocircon', 'version' => VelocityRconConfiguration::VERSION, 'provider' => 'modrinth'] : null,
+            'rcon' => $this->serviceData($server, $settings, $properties, 'rcon', $unavailable) + ['available' => $unavailable === null, 'unavailable_reason' => $unavailable],
+            'query' => $this->serviceData($server, $settings, $properties, 'query') + ['available' => $driver === 'java', 'unavailable_reason' => $driver === 'velocircon' ? 'Velocity Query management is not enabled in Beacon. Use velocity.toml for Query settings.' : $unavailable],
             'active_operation' => $active ? $this->operationData($active) : null,
         ]]);
     }
@@ -90,10 +112,14 @@ class BeaconMinecraftServiceController extends ClientApiController
         ]);
         $service = $validated['service'];
         $action = $validated['action'];
+        $this->configuration->assertSupported($server, $service);
         if ($service === 'query' && $action === 'rotate') {
             throw new ConflictHttpException('Query does not use a password and cannot be rotated.');
         }
         $saved = BeaconMinecraftService::query()->where('server_id', $server->id)->first();
+        if (MinecraftServiceConfiguration::driver($server) === 'velocircon') {
+            $this->configuration->inspect($server, $action !== 'disable');
+        }
         if ($action === 'enable' && !(bool) ($saved?->getAttribute($service . '_enabled') ?? false)) {
             $properties = $this->configuration->inspect($server);
             $key = $service === 'rcon' ? 'enable-rcon' : 'enable-query';
@@ -160,6 +186,7 @@ class BeaconMinecraftServiceController extends ClientApiController
                 [
                     'service' => $service,
                     'action' => $action,
+                    'configuration_driver' => MinecraftServiceConfiguration::driver($server),
                     'phase' => 'prepare',
                     'progress' => ['stage' => 'queued', 'percent' => 0, 'message' => 'Waiting for the worker.'],
                 ],
@@ -190,6 +217,7 @@ class BeaconMinecraftServiceController extends ClientApiController
         ?BeaconMinecraftService $settings,
         array $properties,
         string $service,
+        ?string $unavailable = null,
     ): array {
         $allocation = $service === 'rcon' ? $settings?->rconAllocation : $settings?->queryAllocation;
         $tracked = (bool) ($settings?->getAttribute($service . '_enabled') ?? false);
@@ -198,12 +226,21 @@ class BeaconMinecraftServiceController extends ClientApiController
         $allocationValid = $allocation !== null
             && $allocation->server_id === $server->id
             && $allocation->id !== $server->allocation_id;
-        $healthy = $tracked && $propertyEnabled && $allocationValid && $propertyPort === $allocation->port;
+        $passwordMatches = $service !== 'rcon' || (is_string($settings?->rcon_password)
+            && hash_equals($settings->rcon_password, (string) ($properties['rcon.password'] ?? '')));
+        $hostMatches = MinecraftServiceConfiguration::driver($server) !== 'velocircon'
+            || $service !== 'rcon' || ($properties['rcon.host'] ?? null) === '0.0.0.0';
+        $verificationFailed = MinecraftServiceConfiguration::driver($server) === 'velocircon' && $service === 'rcon'
+            && $settings?->lastOperation?->status === BeaconOperation::STATUS_FAILED;
+        $ownedConfiguration = $tracked && $propertyEnabled && $allocationValid && $propertyPort === $allocation->port && $passwordMatches && $hostMatches;
+        $healthy = $ownedConfiguration && !$verificationFailed && $unavailable === null;
         $drift = null;
         if (!$tracked && $propertyEnabled) {
             $drift = strtoupper($service) . ' is enabled outside Beacon and will not be modified automatically.';
+        } elseif ($verificationFailed) {
+            $drift = 'The last Velocity RCON operation failed. Review its history and the plugin before retrying.';
         } elseif ($tracked && !$healthy) {
-            $drift = 'The saved Beacon state does not match server.properties or the assigned allocation.';
+            $drift = 'The saved Beacon state does not match the service configuration or assigned allocation.';
         }
 
         return [
@@ -214,14 +251,13 @@ class BeaconMinecraftServiceController extends ClientApiController
             'port' => $allocationValid ? $allocation->port : null,
             'password_configured' => $service === 'rcon' && $healthy && !empty($settings?->rcon_password),
             'drift' => $drift,
+            'can_disable' => $ownedConfiguration,
         ];
     }
 
     private function ensureEligible(Server $server): void
     {
-        if (strcasecmp((string) $server->nest?->name, (string) config('beacon.modpacks.nest.name', 'Beacon')) !== 0) {
-            throw new ConflictHttpException('RCON & Query Manager is available only for Minecraft servers in the Beacon nest.');
-        }
+        $this->configuration->assertSupported($server, 'rcon');
     }
 
     private function operationData(BeaconOperation $operation): array

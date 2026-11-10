@@ -9,6 +9,7 @@ import TitledGreyBox from '@/components/elements/TitledGreyBox';
 import Button from '@/components/elements/Button';
 import Spinner from '@/components/elements/Spinner';
 import Modal from '@/components/elements/Modal';
+import { Link } from 'react-router-dom';
 import {
     getMinecraftServiceOperation,
     getMinecraftServicesContext,
@@ -57,6 +58,7 @@ const Value = ({ children }: { children: React.ReactNode }) => (
 
 const MinecraftServicesContainer = () => {
     const server = ServerContext.useStoreState((state) => state.server.data!.uuid);
+    const serverId = ServerContext.useStoreState((state) => state.server.data!.id);
     const { clearFlashes, clearAndAddHttpError, addFlash } = useFlash();
     const [context, setContext] = useState<MinecraftServicesContext>();
     const [active, setActive] = useState<MinecraftServiceOperation | null>(null);
@@ -136,6 +138,8 @@ const MinecraftServicesContainer = () => {
 
     const busy = !!active && ['pending', 'running'].includes(active.status);
 
+    if (context?.supported === false) return null;
+
     return (
         <>
             <FlashMessageRender byKey={'beacon-minecraft-services'} css={tw`mb-4`} />
@@ -151,6 +155,17 @@ const MinecraftServicesContainer = () => {
                                 settings change.
                             </p>
                         </div>
+
+                        {context.rcon.unavailable_reason && (
+                            <div css={tw`text-sm text-neutral-200 mb-5`}>
+                                <p>{context.rcon.unavailable_reason}</p>
+                                {context.required_plugin && (
+                                    <Link css={tw`text-cyan-300 inline-block mt-2`} to={`/server/${serverId}/plugins`}>
+                                        Open Plugin Installer
+                                    </Link>
+                                )}
+                            </div>
+                        )}
 
                         <div css={tw`space-y-3 text-sm`}>
                             <div css={tw`flex items-center justify-between gap-3`}>
@@ -194,6 +209,10 @@ const MinecraftServicesContainer = () => {
                             </div>
                         )}
 
+                        {context.query.unavailable_reason && (
+                            <p css={tw`mt-4 text-xs text-neutral-300`}>{context.query.unavailable_reason}</p>
+                        )}
+
                         {busy && (
                             <div css={tw`mt-5`}>
                                 <div css={tw`flex justify-between text-xs text-neutral-300 mb-2`}>
@@ -215,7 +234,12 @@ const MinecraftServicesContainer = () => {
                                     type={'button'}
                                     size={'xsmall'}
                                     color={'grey'}
-                                    disabled={busy || !!context.rcon.drift}
+                                    disabled={
+                                        busy ||
+                                        !!context.rcon.drift ||
+                                        context.rcon.available === false ||
+                                        !context.enabled
+                                    }
                                     onClick={() => setPending({ service: 'rcon', action: 'rotate' })}
                                 >
                                     <FontAwesomeIcon icon={faKey} css={tw`mr-2`} /> Rotate RCON password
@@ -225,7 +249,13 @@ const MinecraftServicesContainer = () => {
                                 type={'button'}
                                 size={'xsmall'}
                                 color={context.rcon.managed ? 'red' : 'primary'}
-                                disabled={busy || !!context.rcon.drift || !context.enabled}
+                                disabled={
+                                    busy ||
+                                    !context.enabled ||
+                                    (context.rcon.managed
+                                        ? context.rcon.can_disable === false
+                                        : !!context.rcon.drift || context.rcon.available === false)
+                                }
                                 onClick={() =>
                                     setPending({ service: 'rcon', action: context.rcon.managed ? 'disable' : 'enable' })
                                 }
@@ -236,7 +266,12 @@ const MinecraftServicesContainer = () => {
                                 type={'button'}
                                 size={'xsmall'}
                                 color={context.query.managed ? 'red' : 'primary'}
-                                disabled={busy || !!context.query.drift || !context.enabled}
+                                disabled={
+                                    busy ||
+                                    !!context.query.drift ||
+                                    !context.enabled ||
+                                    context.query.available === false
+                                }
                                 onClick={() =>
                                     setPending({
                                         service: 'query',

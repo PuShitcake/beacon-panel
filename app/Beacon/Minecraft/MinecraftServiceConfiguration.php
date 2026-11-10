@@ -17,9 +17,41 @@ class MinecraftServiceConfiguration
     {
     }
 
-    /** @return array<string, string> */
-    public function inspect(Server $server): array
+    public static function driver(Server $server): ?string
     {
+        $server->loadMissing('egg.nest');
+        if ($server->egg?->nest?->name !== config('beacon.modpacks.nest.name', 'Beacon')) {
+            return null;
+        }
+
+        return match (strtolower(trim($server->egg->name))) {
+            'velocity' => 'velocircon',
+            'vanilla minecraft', 'paper', 'paper + geyser + floodgate', 'fabric', 'curseforge generic',
+            'forge minecraft', 'neoforge', 'neoforge minecraft', 'quilt', 'quilt minecraft',
+            'bukkit', 'craftbukkit', 'spigot', 'purpur' => 'java',
+            default => null,
+        };
+    }
+
+    public function assertSupported(Server $server, string $service): void
+    {
+        $driver = self::driver($server);
+        if ($driver === null || !in_array($service, ['rcon', 'query'], true)) {
+            throw new ConflictHttpException('RCON & Query Manager requires supported Minecraft software in the Beacon nest.');
+        }
+        if ($driver === 'velocircon' && $service !== 'rcon') {
+            throw new ConflictHttpException('Velocity Query management is not enabled in Beacon. Use velocity.toml for Query settings.');
+        }
+    }
+
+    /** @return array<string, string> */
+    public function inspect(Server $server, bool $verifyPlugin = true): array
+    {
+        $this->assertSupported($server, 'rcon');
+        if (self::driver($server) === 'velocircon') {
+            return app(VelocityRconConfiguration::class)->inspect($server, $verifyPlugin);
+        }
+
         return $this->parse($this->read($server));
     }
 
@@ -33,6 +65,10 @@ class MinecraftServiceConfiguration
         $invalid = array_diff(array_keys($values), self::MANAGED_KEYS);
         if ($invalid !== []) {
             throw new \InvalidArgumentException('An unsupported Minecraft service property was requested.');
+        }
+        $this->assertSupported($server, 'rcon');
+        if (self::driver($server) === 'velocircon') {
+            return app(VelocityRconConfiguration::class)->apply($server, $values);
         }
 
         $original = $this->read($server);
@@ -75,6 +111,12 @@ class MinecraftServiceConfiguration
 
     public function restore(Server $server, string $content): void
     {
+        $this->assertSupported($server, 'rcon');
+        if (self::driver($server) === 'velocircon') {
+            app(VelocityRconConfiguration::class)->restore($server, $content);
+
+            return;
+        }
         $this->write($server, $content);
     }
 

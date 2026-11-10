@@ -11,6 +11,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Pterodactyl\Models\BeaconMinecraftService;
 use Pterodactyl\Beacon\Operations\PublicOperationError;
+use Pterodactyl\Beacon\Minecraft\RconAuthenticationProbe;
 use Pterodactyl\Repositories\Wings\DaemonServerRepository;
 use Pterodactyl\Beacon\Minecraft\MinecraftServicePowerService;
 use Pterodactyl\Beacon\Minecraft\MinecraftServiceConfiguration;
@@ -27,6 +28,11 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
     public function __construct(public int $operationId)
     {
         $this->queue = 'standard';
+    }
+
+    public function middleware(): array
+    {
+        return [(new \Illuminate\Queue\Middleware\WithoutOverlapping('minecraft-service-operation:' . $this->operationId))->releaseAfter(5)->expireAfter(330)];
     }
 
     public function handle(
@@ -51,16 +57,43 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
             'error_message' => null,
         ])->save();
 
+        $interruptedWithoutSnapshot = false;
         try {
+            $actor = $operation->user;
+            if (!$actor || (!$actor->root_admin && $server->owner_id !== $actor->id)
+                || $server->isSuspended() || $server->status !== null || $server->transfer()->exists()) {
+                throw new \Symfony\Component\HttpKernel\Exception\ConflictHttpException('This Minecraft service operation is no longer authorized or the server is unavailable.');
+            }
+            $service = (string) data_get($operation->payload, 'service');
+            $configuration->assertSupported($server, $service);
+            $driver = MinecraftServiceConfiguration::driver($server);
+            if (data_get($operation->payload, 'configuration_driver', 'java') !== $driver) {
+                throw new \RuntimeException('The Minecraft service runtime changed. No new service settings were written.');
+            }
             if (data_get($operation->payload, 'phase') === 'wait_start') {
                 if (!$power->waitForRestart($operation, $server)) {
                     $this->release(5);
 
                     return;
                 }
-                $this->complete($operation, $server, data_get($operation->payload, 'pending_result', []), true);
+                if ($driver === 'velocircon' && data_get($operation->payload, 'action') !== 'disable'
+                    && !$this->verifyVelocityListener($operation, $server)) {
+                    $this->release(5);
+
+                    return;
+                }
+                $result = data_get($operation->payload, 'pending_result', []);
+                if ($driver === 'velocircon' && data_get($operation->payload, 'action') !== 'disable') {
+                    $result['connection_verified'] = true;
+                }
+                $this->complete($operation, $server, $result, true);
 
                 return;
+            }
+            if (data_get($operation->payload, 'phase') === 'applying') {
+                $interruptedWithoutSnapshot = !is_string(data_get($operation->payload, 'rollback_token'))
+                    || data_get($operation->payload, 'rollback_token') === '';
+                throw new \Symfony\Component\HttpKernel\Exception\ConflictHttpException('A previous Minecraft service mutation was interrupted. Review its configuration and protected restore points before retrying.');
             }
             if (!$power->prepare($operation, $server)) {
                 $this->release(5);
@@ -69,6 +102,9 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
             }
 
             $operation->refresh();
+            $payload = $operation->payload;
+            $payload['phase'] = 'applying';
+            $operation->forceFill(['payload' => $payload])->save();
             $result = $this->mutate($operation, $server, $configuration, $allocations, $wings);
             if ($power->beginRestart($operation, $server, $result)) {
                 $this->release(5);
@@ -94,7 +130,7 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
                 'error_message' => $rollbackFailed
                     ? 'The Minecraft service operation failed and rollback also failed. Manual review is required.'
                     : $this->safeError($exception),
-                'result' => ['rollback' => ['status' => $rollbackFailed ? 'failed' : 'not_required_or_succeeded']],
+                'result' => ['rollback' => ['status' => $rollbackFailed ? 'failed' : ($interruptedWithoutSnapshot ? 'manual_review' : 'not_required_or_succeeded')]],
                 'finished_at' => now(),
             ])->save();
         }
@@ -130,13 +166,21 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
         $previousAllocation = $settings->{$allocationRelation}()->first();
         $originalProperties = null;
         $allocation = null;
+        $claimedNewAllocation = false;
+        $releasedAllocation = false;
 
         try {
             if ($action === 'enable') {
+                $current = $configuration->inspect($server);
+                $key = $service === 'rcon' ? 'enable-rcon' : 'enable-query';
+                if (($current[$key] ?? 'false') === 'true') {
+                    throw new \Symfony\Component\HttpKernel\Exception\ConflictHttpException('The service was enabled outside Beacon while waiting for the worker. No service configuration was overwritten.');
+                }
                 if ($previous['enabled']) {
                     throw new \RuntimeException(strtoupper($service) . ' is already enabled by Beacon.');
                 }
                 $allocation = $allocations->claim($server, $settings, $service);
+                $claimedNewAllocation = $previous['allocation_id'] === null;
                 $wings->setServer($server->refresh())->sync();
                 $values = $service === 'rcon'
                     ? [
@@ -155,10 +199,12 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
                 if (!$previous['enabled'] || !$previousAllocation instanceof Allocation) {
                     throw new \RuntimeException(strtoupper($service) . ' is not managed or enabled by Beacon.');
                 }
+                $this->assertOwnedConfiguration($server, $settings, $service, $previousAllocation, $configuration, false);
                 $originalProperties = $configuration->apply($server, $service === 'rcon'
                     ? ['enable-rcon' => false, 'rcon.port' => null, 'rcon.password' => null]
                     : ['enable-query' => false, 'query.port' => null]);
                 $allocations->release($server, $settings, $service);
+                $releasedAllocation = true;
                 $wings->setServer($server->refresh())->sync();
                 $settings->refresh()->forceFill([
                     $flag => false,
@@ -170,6 +216,7 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
                 if (!$previous['enabled'] || !$previousAllocation instanceof Allocation) {
                     throw new \RuntimeException('RCON is not managed or enabled by Beacon.');
                 }
+                $this->assertOwnedConfiguration($server, $settings, $service, $previousAllocation, $configuration, true);
                 $password = $this->password();
                 $originalProperties = $configuration->apply($server, [
                     'enable-rcon' => true,
@@ -188,13 +235,13 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
                 if (is_string($originalProperties)) {
                     $configuration->restore($server, $originalProperties);
                 }
-                if ($action === 'enable') {
+                if ($action === 'enable' && $claimedNewAllocation) {
                     $settings->refresh();
                     if ($settings->getAttribute($service . '_allocation_id') !== null) {
                         $allocations->release($server, $settings, $service);
                         $wings->setServer($server->refresh())->sync();
                     }
-                } elseif ($action === 'disable' && $previousAllocation instanceof Allocation) {
+                } elseif ($action === 'disable' && $releasedAllocation && $previousAllocation instanceof Allocation) {
                     $allocations->restore($server, $settings, $service, $previousAllocation);
                     $wings->setServer($server->refresh())->sync();
                 }
@@ -224,6 +271,7 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
             'allocation_id' => $previous['allocation_id'],
             'last_operation_id' => $previous['last_operation_id'],
             'server_properties' => $originalProperties,
+            'configuration_driver' => MinecraftServiceConfiguration::driver($server),
         ], JSON_THROW_ON_ERROR));
         $operation->forceFill(['payload' => $payload])->save();
 
@@ -262,6 +310,37 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
         $activity->log();
     }
 
+    private function assertOwnedConfiguration(Server $server, BeaconMinecraftService $settings, string $service, Allocation $allocation, MinecraftServiceConfiguration $configuration, bool $verifyPlugin): void
+    {
+        $current = $configuration->inspect($server, $verifyPlugin);
+        $key = $service === 'rcon' ? 'enable-rcon' : 'enable-query';
+        $portKey = $service === 'rcon' ? 'rcon.port' : 'query.port';
+        if (($current[$key] ?? 'false') !== 'true' || (int) ($current[$portKey] ?? 0) !== $allocation->port
+            || ($service === 'rcon' && (!is_string($settings->rcon_password) || !hash_equals($settings->rcon_password, (string) ($current['rcon.password'] ?? ''))))) {
+            throw new \Symfony\Component\HttpKernel\Exception\ConflictHttpException('The service configuration changed outside Beacon. Review its settings before retrying.');
+        }
+    }
+
+    private function verifyVelocityListener(BeaconOperation $operation, Server $server): bool
+    {
+        $settings = BeaconMinecraftService::query()->with('rconAllocation')->where('server_id', $server->id)->firstOrFail();
+        $allocation = $settings->rconAllocation;
+        if (!$settings->rcon_enabled || !$allocation || $allocation->server_id !== $server->id
+            || $allocation->id === $server->allocation_id || !is_string($settings->rcon_password)) {
+            throw new \RuntimeException('The Velocity RCON listener cannot be verified because its managed state changed.');
+        }
+        if (app(RconAuthenticationProbe::class)->authenticate($allocation->ip, $allocation->port, $settings->rcon_password)) {
+            return true;
+        }
+        $started = data_get($operation->payload, 'power_transition_started_at');
+        if (!is_string($started) || now()->diffInSeconds(\Carbon\CarbonImmutable::parse($started), true)
+            >= max(30, (int) config('beacon.minecraft_services.power_transition_timeout_seconds', 120))) {
+            throw new \RuntimeException('Velocity started but its RCON listener could not be authenticated. Review the plugin and network configuration.');
+        }
+
+        return false;
+    }
+
     private function password(): string
     {
         return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
@@ -285,6 +364,9 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
         $snapshot = json_decode(Crypt::decryptString($token), true, flags: JSON_THROW_ON_ERROR);
         if (!is_array($snapshot) || !in_array($snapshot['service'] ?? null, ['rcon', 'query'], true)) {
             throw new \RuntimeException('The encrypted Minecraft service rollback snapshot is invalid.');
+        }
+        if (($snapshot['configuration_driver'] ?? 'java') !== MinecraftServiceConfiguration::driver($server)) {
+            throw new \RuntimeException('The service runtime changed. Automatic rollback cannot overwrite a different configuration format.');
         }
 
         $service = $snapshot['service'];
@@ -344,7 +426,9 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
         if (!$operation instanceof BeaconOperation) {
             return;
         }
-        $rollback = 'not_required_or_succeeded';
+        $token = data_get($operation->payload, 'rollback_token');
+        $rollback = data_get($operation->payload, 'phase') === 'applying' && (!is_string($token) || $token === '')
+            ? 'manual_review' : 'not_required_or_succeeded';
         try {
             $server = $operation->server()->first();
             if ($server instanceof Server) {
@@ -365,7 +449,9 @@ class ProcessMinecraftServiceOperationJob implements ShouldQueue
             'error_code' => 'minecraft_service_operation_failed',
             'error_message' => $rollback === 'failed'
                 ? 'The Minecraft service operation exhausted its worker attempts and rollback failed. Manual review is required.'
-                : 'The Minecraft service operation failed after all worker attempts.',
+                : ($rollback === 'manual_review'
+                    ? 'The Minecraft service worker stopped during a configuration change. Manual review is required.'
+                    : 'The Minecraft service operation failed after all worker attempts.'),
             'result' => ['rollback' => ['status' => $rollback]],
             'finished_at' => now(),
         ])->save();

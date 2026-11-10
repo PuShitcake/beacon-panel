@@ -2,6 +2,8 @@
 
 namespace Pterodactyl\Tests\Integration\Beacon\Minecraft;
 
+use Pterodactyl\Models\Egg;
+use Pterodactyl\Models\Nest;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Tests\TestCase;
 use Pterodactyl\Repositories\Wings\DaemonFileRepository;
@@ -9,9 +11,19 @@ use Pterodactyl\Beacon\Minecraft\MinecraftServiceConfiguration;
 
 class MinecraftServiceConfigurationTest extends TestCase
 {
-    public function testItUpdatesOnlyManagedServicePropertiesAndPreservesOtherLines(): void
+    private function javaServer(): Server
     {
         $server = Server::factory()->make();
+        $egg = (new Egg())->forceFill(['name' => 'Vanilla Minecraft']);
+        $egg->setRelation('nest', (new Nest())->forceFill(['name' => 'Beacon']));
+        $server->setRelation('egg', $egg);
+
+        return $server;
+    }
+
+    public function testItUpdatesOnlyManagedServicePropertiesAndPreservesOtherLines(): void
+    {
+        $server = $this->javaServer();
         $original = "# generated\r\nenable-rcon=false\r\nmotd=Keep me\r\n";
         $repository = \Mockery::mock(DaemonFileRepository::class);
         $repository->expects('setServer')->twice()->with($server)->andReturnSelf();
@@ -34,7 +46,7 @@ class MinecraftServiceConfigurationTest extends TestCase
 
     public function testItRemovesPortAndPasswordWhenRconIsDisabled(): void
     {
-        $server = Server::factory()->make();
+        $server = $this->javaServer();
         $original = "enable-rcon=true\nrcon.port=25575\nrcon.password=secret\nmotd=Keep me\n";
         $repository = \Mockery::mock(DaemonFileRepository::class);
         $repository->expects('setServer')->twice()->with($server)->andReturnSelf();
@@ -55,7 +67,7 @@ class MinecraftServiceConfigurationTest extends TestCase
 
     public function testItRejectsPropertiesOutsideItsAllowlist(): void
     {
-        $server = Server::factory()->make();
+        $server = $this->javaServer();
         $repository = \Mockery::mock(DaemonFileRepository::class);
 
         $this->expectException(\InvalidArgumentException::class);

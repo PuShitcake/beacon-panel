@@ -86,6 +86,15 @@ class ProcessPluginOperationJob implements ShouldQueue
                 );
             }
             $this->assertReviewPolicy($operation->payload);
+            $protectedIds = array_merge(
+                (array) data_get($operation->payload, 'replace_installation_ids', []),
+                (array) data_get($operation->payload, 'remove_installation_ids', []),
+                [data_get($operation->payload, 'installation_id', 0)],
+            );
+            foreach (BeaconContentInstallation::query()->where('server_id', $server->id)->whereIn('id', $protectedIds)
+                ->where('provider', 'modrinth')->where('project_id', \Pterodactyl\Beacon\Minecraft\VelocityRconConfiguration::PROJECT)->get() as $plugin) {
+                \Pterodactyl\Beacon\Minecraft\VelocityRconConfiguration::assertPluginMutable($server, $plugin);
+            }
             if (!$power->prepare($operation, $server)) {
                 $this->release(5);
 

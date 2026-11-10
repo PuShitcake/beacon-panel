@@ -400,13 +400,16 @@ class BeaconPluginController extends ClientApiController
 
     private function installation(Server $server, int $id): BeaconContentInstallation
     {
-        return BeaconContentInstallation::query()
+        $installation = BeaconContentInstallation::query()
             ->where('server_id', $server->id)
             ->where('project_type', 'plugin')
             ->where('destination', 'plugins')
             ->where('is_dependency', false)
             ->whereKey($id)
             ->firstOrFail();
+        \Pterodactyl\Beacon\Minecraft\VelocityRconConfiguration::assertPluginMutable($server, $installation);
+
+        return $installation;
     }
 
     private function pluginRuntime(Server $server, bool $required = true): ?array
