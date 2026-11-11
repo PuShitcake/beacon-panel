@@ -126,7 +126,7 @@ class HangarPluginProvider implements ContentProvider
             || !$this->allowedReview($version['reviewState'] ?? null)
             || !empty($file['externalUrl']) || !is_string($filename) || strlen($filename) > 191
             || !preg_match('/^[A-Za-z0-9][A-Za-z0-9._+-]*\.jar$/D', $filename)
-            || !is_int($size) || $size < 1 || $size > config('beacon.content.max_file_bytes')
+            || !is_int($size) || $size < 1
             || !is_string($sha256) || !preg_match('/^[a-fA-F0-9]{64}$/D', $sha256)) {
             throw new ProviderResponseException('The Hangar file is unavailable, external, unsafe, or outside the download policy.');
         }

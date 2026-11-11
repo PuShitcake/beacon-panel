@@ -57,6 +57,7 @@ export interface Server {
         software: string;
         name: string;
         plugins: boolean;
+        addons?: boolean;
         mods: boolean;
         modpacks: boolean;
         configuration: boolean;
@@ -96,6 +97,7 @@ export const rawDataToServerObject = ({ attributes: data }: FractalResponseData)
         software: data.beacon_capabilities?.software || 'unknown',
         name: data.beacon_capabilities?.name || 'Unsupported software',
         plugins: data.beacon_capabilities?.plugins || false,
+        addons: data.beacon_capabilities?.addons || false,
         mods: data.beacon_capabilities?.mods || false,
         modpacks: data.beacon_capabilities?.modpacks || false,
         configuration: data.beacon_capabilities?.configuration || false,

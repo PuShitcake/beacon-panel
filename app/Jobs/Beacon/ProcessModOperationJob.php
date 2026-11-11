@@ -128,7 +128,7 @@ class ProcessModOperationJob implements ShouldQueue
         }
         foreach ($plan as $item) {
             if (strlen($item['filename']) > 191 || !preg_match('/^[A-Za-z0-9][A-Za-z0-9._+-]*\.jar$/D', $item['filename'])
-                || !is_int($item['size'] ?? null) || $item['size'] < 1 || $item['size'] > config('beacon.content.max_file_bytes')) {
+                || !is_int($item['size'] ?? null) || $item['size'] < 1) {
                 throw new ConflictHttpException('The stored mod file violates the filename or size policy. No mod files were changed.');
             }
         }
@@ -184,7 +184,7 @@ class ProcessModOperationJob implements ShouldQueue
                 if (!is_string($expected) || !preg_match($algorithm === 'sha1' ? '/^[a-f0-9]{40}$/D' : '/^[a-f0-9]{128}$/D', $expected)) {
                     throw new ConflictHttpException('The stored mod file hash is invalid. No mod files were changed.');
                 }
-                $hashes = $files->getFileHashes('/.beacon/' . $stageName . '/' . $item['filename'], min((int) $item['size'], (int) config('beacon.content.max_file_bytes')));
+                $hashes = $files->getFileHashes('/.beacon/' . $stageName . '/' . $item['filename'], $item['size']);
                 if ($hashes['size'] !== (int) $item['size'] || !hash_equals($expected, $hashes[$algorithm])) {
                     throw new ConflictHttpException('A downloaded mod failed checksum verification. No mod files were changed.');
                 }

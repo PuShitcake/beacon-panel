@@ -155,10 +155,7 @@ class ProcessModpackOperationJob implements ShouldQueue
                             );
                     $operation->forceFill(['payload' => $payload])->save();
                 }
-                $manifest = array_merge($payload['release'], [
-                    'max_archive_bytes' => (int) config('beacon.modpacks.max_archive_bytes'),
-                    'max_extracted_bytes' => (int) config('beacon.modpacks.max_extracted_bytes'),
-                ]);
+                $manifest = $payload['release'];
                 $repository->putContent('/.beacon/modpack-install.json', json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
                 $repository->putContent('/.beacon/install-result.json', json_encode([
                     'status' => 'pending',

@@ -43,11 +43,12 @@ class DaemonFileRepository extends DaemonRepository
             $sha512 = hash_init('sha512');
             $size = 0;
             while (!$body->eof()) {
-                $chunk = $body->read(min(1048576, $maxBytes + 1 - $size));
-                $size += strlen($chunk);
-                if ($size > $maxBytes) {
+                $remaining = $maxBytes - $size;
+                $chunk = $body->read($remaining < 1048576 ? $remaining + 1 : 1048576);
+                if (strlen($chunk) > $remaining) {
                     throw new FileSizeTooLargeException();
                 }
+                $size += strlen($chunk);
                 if ($chunk === '' && !$body->eof()) {
                     throw new \RuntimeException('The file verification stream stopped unexpectedly.');
                 }

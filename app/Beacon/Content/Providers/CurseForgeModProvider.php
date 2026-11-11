@@ -174,8 +174,8 @@ class CurseForgeModProvider implements ContentProvider
         $filename = $this->string($file, 'fileName');
         $size = $file['fileLength'] ?? null;
         if (strlen($filename) > 191 || !preg_match('/^[A-Za-z0-9][A-Za-z0-9._+-]*\.jar$/D', $filename)
-            || !is_int($size) || $size < 1 || $size > config('beacon.content.max_file_bytes')) {
-            throw new ProviderResponseException('CurseForge returned an unsafe filename or a file outside the size policy.');
+            || !is_int($size) || $size < 1) {
+            throw new ProviderResponseException('CurseForge returned an unsafe filename or an invalid file size.');
         }
         if (!is_array($file['hashes'] ?? null) || !is_array($file['dependencies'] ?? null)
             || !array_is_list($file['dependencies']) || count($file['dependencies']) > 256) {

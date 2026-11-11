@@ -74,6 +74,7 @@ class ServerTransformer extends BaseClientTransformer
                 'software' => $capabilities['software'],
                 'name' => $capabilities['name'],
                 'plugins' => $capabilities['plugins'],
+                'addons' => $capabilities['addons'],
                 'mods' => $capabilities['mods'],
                 'modpacks' => $capabilities['modpacks'],
                 'configuration' => $capabilities['configuration'],

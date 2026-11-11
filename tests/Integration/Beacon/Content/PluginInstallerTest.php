@@ -616,9 +616,36 @@ class PluginInstallerTest extends TestCase
         return [['curseforge'], ['modrinth'], ['hangar'], ['velocity-hangar'], ['velocity-curseforge'], ['velocity-modrinth'], ['unreviewed-hangar']];
     }
 
+    public function testSharedCapRemovalAlsoReachesTheModWorkerAndKeepsExactHashBounds(): void
+    {
+        config()->set('beacon.content.max_file_bytes', 1);
+        $this->files->expects('pull')->andReturnUsing(function ($url, $directory, $options) {
+            $this->disk[$directory . '/' . $options['filename']] = 'fixture';
+
+            return new \GuzzleHttp\Psr7\Response(204);
+        });
+        $this->files->expects('getFileHashes')->withArgs(fn ($path, $bytes) => str_ends_with($path, '/fixture.jar') && $bytes === 7)
+            ->andReturn(['size' => 7, 'sha512' => hash('sha512', 'fixture')]);
+        $operation = BeaconOperation::query()->create(['server_id' => 1, 'user_id' => 1, 'uuid' => 'mod-size-policy', 'type' => 'mod.install', 'status' => 'pending',
+            'payload' => ['action' => 'install', 'provider' => 'modrinth', 'runtime' => ['loader' => 'forge', 'game_version' => '1.20.1'], 'plan' => ['files' => [
+                ['project_id' => 'fixture', 'version_id' => 'fixture-v1', 'version_number' => '1.0', 'name' => 'Fixture', 'url' => 'https://cdn.modrinth.com/fixture.jar',
+                    'filename' => 'fixture.jar', 'size' => 7, 'sha512' => hash('sha512', 'fixture'), 'dependency' => false],
+            ]]]]);
+        $job = new \Pterodactyl\Jobs\Beacon\ProcessModOperationJob($operation->id);
+        $install = new \ReflectionMethod($job, 'install');
+        $result = $install->invoke($job, $operation, $this->server(), $this->files);
+        $this->assertSame(['fixture.jar'], $result['installed_files']);
+        $this->assertSame('fixture', $this->disk['/mods/fixture.jar']);
+        $this->assertSame(7, BeaconContentInstallation::query()->firstOrFail()->size);
+        $this->assertSame('mods', BeaconContentInstallation::query()->firstOrFail()->destination);
+    }
+
     #[DataProvider('providers')]
     public function testRealWorkerInstallUninstallHashAndProviderIsolation(string $provider): void
     {
+        // Stale deployment settings must not silently reintroduce removed payload caps.
+        config()->set('beacon.content.max_file_bytes', 1);
+        config()->set('beacon.content.max_total_bytes', 1);
         $unreviewed = $provider === 'unreviewed-hangar';
         if ($unreviewed) {
             $provider = 'hangar';
@@ -640,7 +667,7 @@ class PluginInstallerTest extends TestCase
 
             return new \GuzzleHttp\Psr7\Response(204);
         });
-        $this->files->expects('getFileHashes')->andReturn(['size' => 7, 'sha1' => hash('sha1', 'fixture'), 'sha256' => hash('sha256', 'fixture'), 'sha512' => hash('sha512', 'fixture')]);
+        $this->files->expects('getFileHashes')->withArgs(fn ($path, $bytes) => $bytes === 7)->andReturn(['size' => 7, 'sha1' => hash('sha1', 'fixture'), 'sha256' => hash('sha256', 'fixture'), 'sha512' => hash('sha512', 'fixture')]);
         $operation = BeaconOperation::query()->create(['server_id' => 1, 'user_id' => 1, 'uuid' => 'plugin-install', 'type' => 'plugin.install', 'status' => 'pending',
             'payload' => ['phase' => 'prepare', 'action' => 'install', 'provider' => $provider, 'runtime' => $runtime, 'plan' => ['provider' => $provider, 'files' => [
                 ['project_id' => '123', 'project_name' => 'Fixture', 'version_id' => '123:456', 'version_number' => '1.0', 'name' => 'Release', 'url' => $url, 'filename' => 'fixture.jar', 'size' => 7,

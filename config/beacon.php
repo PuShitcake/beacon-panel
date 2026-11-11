@@ -26,8 +26,6 @@ return [
         'enabled' => env('BEACON_MODPACKS_ENABLED', false),
         'require_stopped_server' => true,
         'backup_before_mutation' => true,
-        'max_archive_bytes' => (int) env('BEACON_MODPACK_MAX_ARCHIVE_BYTES', 2147483648),
-        'max_extracted_bytes' => (int) env('BEACON_MODPACK_MAX_EXTRACTED_BYTES', 8589934592),
         'operation_timeout_minutes' => (int) env('BEACON_MODPACK_OPERATION_TIMEOUT', 60),
         'power_transition_timeout_seconds' => (int) env('BEACON_MODPACK_POWER_TIMEOUT', 120),
         'nest' => [
@@ -126,8 +124,6 @@ return [
         'categories' => ['decoration', 'economy', 'equipment', 'food', 'game-mechanics', 'library', 'magic', 'management', 'minigame', 'mobs', 'optimization', 'social', 'storage', 'transportation', 'utility', 'worldgen'],
     ],
     'content' => [
-        'max_file_bytes' => (int) env('BEACON_CONTENT_MAX_FILE_BYTES', 268435456),
-        'max_total_bytes' => (int) env('BEACON_CONTENT_MAX_TOTAL_BYTES', 536870912),
         'max_dependencies' => (int) env('BEACON_CONTENT_MAX_DEPENDENCIES', 50),
         'max_dependency_depth' => (int) env('BEACON_CONTENT_MAX_DEPENDENCY_DEPTH', 8),
         'require_stopped_server' => env('BEACON_CONTENT_REQUIRE_STOPPED_SERVER', true),

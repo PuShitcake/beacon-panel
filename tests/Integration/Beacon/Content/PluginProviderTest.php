@@ -41,13 +41,19 @@ class PluginProviderTest extends TestCase
         Http::assertSent(fn ($request) => str_contains($request->url(), 'classId=5') && !str_contains($request->url(), 'modLoaderType'));
     }
 
-    public function testCurseForgeNormalizesAPluginWithNoForgeTagAndRequiresItsProviderHash(): void
+    public static function fileSizes(): array
+    {
+        return [[7], [5368709120]];
+    }
+
+    #[DataProvider('fileSizes')]
+    public function testCurseForgeNormalizesAPluginWithNoForgeTagAndRequiresItsProviderHash(int $size): void
     {
         Http::fake([
             'api.curseforge.com/v1/mods/123' => Http::response(['data' => ['id' => 123, 'gameId' => 432, 'classId' => 5, 'isAvailable' => true, 'name' => 'Fixture']]),
             'api.curseforge.com/v1/mods/123/files/456' => Http::response(['data' => [
                 'id' => 456, 'modId' => 123, 'isAvailable' => true, 'fileStatus' => 4, 'releaseType' => 1, 'gameVersions' => ['1.20.1'],
-                'fileName' => 'plugin.jar', 'fileLength' => 7, 'displayName' => 'Release', 'fileDate' => '2026-01-01', 'dependencies' => [],
+                'fileName' => 'plugin.jar', 'fileLength' => $size, 'displayName' => 'Release', 'fileDate' => '2026-01-01', 'dependencies' => [],
                 'hashes' => [['algo' => 1, 'value' => hash('sha1', 'fixture')]], 'downloadUrl' => 'https://edge.forgecdn.net/files/1/2/plugin.jar',
             ]]),
         ]);
@@ -55,6 +61,7 @@ class PluginProviderTest extends TestCase
         $plan = (new DependencyPlanner($provider))->handle('123:456', '1.20.1', 'paper', 'plugin', 'curseforge', $provider);
         $this->assertSame(hash('sha1', 'fixture'), $plan['files'][0]['sha1']);
         $this->assertSame('plugin', $plan['project_type']);
+        $this->assertSame($size, $plan['files'][0]['size']);
     }
 
     private function project(): array
@@ -81,12 +88,16 @@ class PluginProviderTest extends TestCase
         return new HangarPluginProvider();
     }
 
-    public function testHangarUsesExactProjectVersionPlatformAndSha256(): void
+    #[DataProvider('fileSizes')]
+    public function testHangarUsesExactProjectVersionPlatformAndSha256(int $size): void
     {
-        $provider = $this->hangar($this->version());
+        $version = $this->version();
+        $version['downloads']['PAPER']['fileInfo']['sizeBytes'] = $size;
+        $provider = $this->hangar($version);
         $plan = (new DependencyPlanner($provider))->handle('123:456', '1.20.1', 'paper', 'plugin', 'hangar', $provider);
         $this->assertSame(hash('sha256', 'fixture'), $plan['files'][0]['sha256']);
         $this->assertNull($plan['files'][0]['sha512']);
+        $this->assertSame($size, $plan['files'][0]['size']);
         Http::assertSent(fn ($request) => !$request->hasHeader('Authorization') && !$request->hasHeader('x-api-key'));
     }
 
@@ -267,7 +278,7 @@ class PluginProviderTest extends TestCase
             ['downloads.PAPER.downloadUrl', 'http://127.0.0.1/plugin.jar'],
             ['downloads.PAPER.downloadUrl', 'https://hangarcdn.papermc.io.evil.invalid/plugin.jar'],
             ['downloads.PAPER.fileInfo.name', '../plugin.jar'], ['downloads.PAPER.fileInfo.sha256Hash', 'invalid'],
-            ['downloads.PAPER.fileInfo.sizeBytes', 9999999999], ['platformDependencies.PAPER', []],
+            ['downloads.PAPER.fileInfo.sizeBytes', 0], ['downloads.PAPER.fileInfo.sizeBytes', -1], ['downloads.PAPER.fileInfo.sizeBytes', 1.5], ['platformDependencies.PAPER', []],
             ['pluginDependencies.PAPER', [['name' => 'External', 'required' => true, 'projectId' => null, 'externalUrl' => 'https://external.invalid/']]]];
     }
 

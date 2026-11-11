@@ -44,6 +44,32 @@ class ModrinthProviderTest extends IntegrationTestCase
         Http::assertSent(fn ($request) => $request->hasHeader('User-Agent'));
     }
 
+    public function testLargeFileMetadataHasNoFixedPayloadByteCap(): void
+    {
+        $file = $this->version();
+        $file['files'][0]['size'] = 5368709120;
+        Http::fake([
+            'https://api.modrinth.com/v2/version/version-one' => Http::response($file),
+            'https://api.modrinth.com/v2/project/project-one' => Http::response($this->project()),
+        ]);
+        $version = app(ModrinthProvider::class)->version('version-one');
+        $this->assertSame(5368709120, $version['file']['size']);
+        $this->assertSame(str_repeat('a', 128), $version['file']['sha512']);
+    }
+
+    public function testInvalidFileSizesAreNotCoercedIntoValidDownloads(): void
+    {
+        $file = $this->version();
+        $file['files'][0]['size'] = '5368709120';
+        Http::fake([
+            'https://api.modrinth.com/v2/version/version-one' => Http::response($file),
+            'https://api.modrinth.com/v2/project/project-one' => Http::response($this->project()),
+        ]);
+        $this->expectException(ProviderResponseException::class);
+        $this->expectExceptionMessage('invalid file size');
+        app(ModrinthProvider::class)->version('version-one');
+    }
+
     public function testItRejectsDownloadUrlsOutsideTheApprovedCdn(): void
     {
         $response = $this->version();

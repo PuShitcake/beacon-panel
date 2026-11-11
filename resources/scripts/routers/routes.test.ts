@@ -16,6 +16,15 @@ jest.mock('@/components/dashboard/ssh/AccountSSHContainer', () => () => null);
 jest.mock('@/components/dashboard/activity/ActivityLogContainer', () => () => null);
 jest.mock('@/components/server/ServerActivityLogContainer', () => () => null);
 jest.mock('@/components/server/beacon/PluginInstallerContainer', () => () => null);
+jest.mock('@/components/server/beacon/AddonInstallerContainer', () => () => null);
+
+it('gates Add-ons Installer navigation to the backend Bedrock capability and owner', () => {
+    expect(routes.server.find((route) => route.path === '/addons')).toMatchObject({
+        name: 'Add-ons Installer',
+        beaconCapability: 'addons',
+        ownerOnly: true,
+    });
+});
 jest.mock('@/components/server/beacon/ConfigurationContainer', () => () => null);
 jest.mock('@/components/server/beacon/ModInstallerContainer', () => () => null);
 

@@ -14,6 +14,7 @@ import AccountSSHContainer from '@/components/dashboard/ssh/AccountSSHContainer'
 import ActivityLogContainer from '@/components/dashboard/activity/ActivityLogContainer';
 import ServerActivityLogContainer from '@/components/server/ServerActivityLogContainer';
 import PluginInstallerContainer from '@/components/server/beacon/PluginInstallerContainer';
+import AddonInstallerContainer from '@/components/server/beacon/AddonInstallerContainer';
 import ConfigurationContainer from '@/components/server/beacon/ConfigurationContainer';
 import ModInstallerContainer from '@/components/server/beacon/ModInstallerContainer';
 
@@ -37,7 +38,7 @@ interface RouteDefinition {
 interface ServerRouteDefinition extends RouteDefinition {
     permission: string | string[] | null;
     ownerOnly?: boolean;
-    beaconCapability?: 'plugins' | 'mods' | 'modpacks' | 'configuration';
+    beaconCapability?: 'plugins' | 'mods' | 'modpacks' | 'configuration' | 'addons';
 }
 
 interface Routes {
@@ -84,6 +85,14 @@ export default {
             permission: 'file.*',
             name: 'Files',
             component: FileManagerContainer,
+        },
+        {
+            path: '/addons',
+            permission: null,
+            ownerOnly: true,
+            beaconCapability: 'addons',
+            name: 'Add-ons Installer',
+            component: AddonInstallerContainer,
         },
         {
             path: '/plugins',

@@ -139,6 +139,7 @@ class ServerSoftwareCapabilityService
             'software' => $software,
             'name' => $name,
             'plugins' => $plugins,
+            'addons' => $software === 'bedrock',
             'mods' => $mods,
             'modpacks' => $modpacks,
             'configuration' => $configuration,

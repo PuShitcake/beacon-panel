@@ -20,7 +20,7 @@ class PrepareContentMutationService
     /**
      * Returns false while an automatically-created safety backup is still running.
      */
-    public function handle(BeaconOperation $operation, Server $server): bool
+    public function handle(BeaconOperation $operation, Server $server, bool $locked = false): bool
     {
         $details = $this->serverRepository->setServer($server)->getDetails();
         $state = data_get($details, 'state');
@@ -42,7 +42,18 @@ class PrepareContentMutationService
                 throw new ConflictHttpException('A backup slot is required before managed content can be changed.');
             }
 
-            $backup = $this->backupService->handle($server, 'Beacon content safety backup', true);
+            if ($locked) {
+                // Add-ons require a full, locked backup and a genuinely free slot. The native
+                // handle() third argument is quota override, NOT the backup lock flag.
+                try {
+                    $backup = $this->backupService->setIgnoredFiles([])->setIsLocked(true)->handle($server, 'Beacon add-on safety backup');
+                } finally {
+                    $this->backupService->setIsLocked(false)->setIgnoredFiles([]);
+                }
+            } else {
+                // Preserve the established content workflow's existing behavior.
+                $backup = $this->backupService->handle($server, 'Beacon content safety backup', true);
+            }
             $payload['safety_backup_uuid'] = $backup->uuid;
             $operation->forceFill(['payload' => $payload])->save();
 
@@ -66,6 +77,9 @@ class PrepareContentMutationService
         }
         if (!$backup->is_successful) {
             throw new \RuntimeException('The safety backup failed.');
+        }
+        if ($locked && (!$backup->is_locked || $backup->ignored_files !== [])) {
+            throw new ConflictHttpException('Add-on changes require a locked full safety backup. No add-on files were changed.');
         }
 
         return true;

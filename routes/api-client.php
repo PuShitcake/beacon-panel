@@ -77,6 +77,20 @@ Route::group([
     Route::get('/beacon/content/operations/{operationUuid}', [Client\Servers\BeaconContentController::class, 'operation'])
         ->middleware('throttle:api.beacon.poll')->name('api:beacon.content.operation');
 
+    Route::group(['prefix' => '/beacon/addons'], function () {
+        Route::middleware('throttle:api.beacon.content')->group(function () {
+            Route::get('/context', [Client\Servers\BeaconAddonController::class, 'context']);
+            Route::get('/search', [Client\Servers\BeaconAddonController::class, 'search']);
+            Route::get('/projects/{projectId}/versions', [Client\Servers\BeaconAddonController::class, 'versions']);
+            Route::middleware(RequireBeaconRequestMetadata::class)->group(function () {
+                Route::post('/preview', [Client\Servers\BeaconAddonController::class, 'preview']);
+                Route::post('/install', [Client\Servers\BeaconAddonController::class, 'install']);
+                Route::delete('/installations/{installationId}', [Client\Servers\BeaconAddonController::class, 'uninstall']);
+            });
+        });
+        Route::get('/operations/{operationUuid}', [Client\Servers\BeaconAddonController::class, 'operation'])->middleware('throttle:api.beacon.poll');
+    });
+
     Route::group(['prefix' => '/beacon/plugins'], function () {
         Route::middleware('throttle:api.beacon.content')->group(function () {
             Route::get('/context', [Client\Servers\BeaconPluginController::class, 'context'])

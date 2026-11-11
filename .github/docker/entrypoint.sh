@@ -99,6 +99,9 @@ php artisan migrate --seed --force
 ## cache files. Hand runtime-owned paths back to the unprivileged web/queue
 ## user before supervisord starts those processes.
 mkdir -p /app/storage/app/private/beacon/configuration
+mkdir -p /app/storage/app/private/beacon/addons
+chown -R nginx:nginx /app/storage/app/private/beacon/addons
+chmod 700 /app/storage/app/private/beacon/addons
 chown -R nginx:nginx /app/storage/app/private/beacon/configuration
 chmod 700 /app/storage/app/private/beacon/configuration
 chown -R nginx:nginx /app/bootstrap/cache /app/storage

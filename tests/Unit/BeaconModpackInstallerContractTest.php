@@ -29,7 +29,11 @@ class BeaconModpackInstallerContractTest extends TestCase
         $this->assertStringContainsString("--proto-redir '=https'", $script);
         $this->assertStringContainsString('archive contains an unsafe path', $script);
         $this->assertStringContainsString('archive contains a symbolic link', $script);
-        $this->assertStringContainsString('archive expands beyond the safety limit', $script);
+        $this->assertStringContainsString('archive contains an unsafe compression ratio', $script);
+        $this->assertStringNotContainsString('--max-filesize', $script);
+        $this->assertStringNotContainsString('MAX_BYTES', $script);
+        $this->assertStringNotContainsString('MAX_EXTRACTED_BYTES', $script);
+        $this->assertStringNotContainsString('archive entry exceeds the safety limit', $script);
         $this->assertStringContainsString('archive contains too many entries', $script);
         $this->assertStringContainsString('https://cdn.modrinth.com/', $script);
         $this->assertStringContainsString('A Modrinth file hash did not match.', $script);

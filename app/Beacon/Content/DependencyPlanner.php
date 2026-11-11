@@ -64,10 +64,10 @@ class DependencyPlanner
         }
 
         $file = $version['file'];
-        $this->totalBytes += $file['size'];
-        if ($this->totalBytes > config('beacon.content.max_total_bytes')) {
-            throw new ConflictHttpException('The installation plan exceeds the configured total size limit.');
+        if (!is_int($file['size'] ?? null) || $file['size'] < 1 || $file['size'] > PHP_INT_MAX - $this->totalBytes) {
+            throw new ConflictHttpException('The installation plan has invalid or unrepresentable file sizes.');
         }
+        $this->totalBytes += $file['size'];
 
         $this->planned[$versionId] = [
             'project_id' => $version['project_id'],

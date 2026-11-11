@@ -99,6 +99,16 @@ class CurseForgeModProviderTest extends TestCase
         $this->assertSame(['123:456'], array_column($versions, 'id'));
     }
 
+    public function testLargeFilesAreAcceptedWithoutDroppingProviderHashRequirements(): void
+    {
+        $file = $this->file();
+        $file['fileLength'] = 5368709120;
+        $this->fakeFile($file);
+        $version = (new CurseForgeModProvider())->version('123:456');
+        $this->assertSame(5368709120, $version['file']['size']);
+        $this->assertSame(str_repeat('a', 40), $version['file']['sha1']);
+    }
+
     public static function invalidFiles(): array
     {
         return [
@@ -106,7 +116,7 @@ class CurseForgeModProviderTest extends TestCase
             [['downloadUrl' => 'https://user:pass@edge.forgecdn.net/fixture.jar']],
             [['downloadUrl' => 'http://edge.forgecdn.net/fixture.jar']], [['downloadUrl' => 'https://edge.forgecdn.net:8443/fixture.jar']],
             [['fileName' => '../fixture.jar']], [['fileName' => "fixture.jar\n"]], [['fileName' => 'pack.zip']],
-            [['fileLength' => 2048]], [['fileLength' => 0]], [['hashes' => []]], [['hashes' => [['algo' => 2, 'value' => str_repeat('a', 32)]]]],
+            [['fileLength' => -1]], [['fileLength' => 0]], [['fileLength' => 1.5]], [['hashes' => []]], [['hashes' => [['algo' => 2, 'value' => str_repeat('a', 32)]]]],
             [['gameVersions' => ['1.20.1', 'NeoForge']]], [['modId' => 999]], [['id' => 999]],
             [['isAvailable' => false]], [['fileStatus' => 6]], [['dependencies' => [['modId' => 1, 'relationType' => 999]]]],
             [['hashes' => 'invalid']], [['dependencies' => null]], [['dependencies' => ['not-an-object']]], [['gameVersions' => 'invalid']],

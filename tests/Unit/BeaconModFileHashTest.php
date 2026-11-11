@@ -48,6 +48,38 @@ class BeaconModFileHashTest extends TestCase
         return [[['Content-Length' => '1000']], [[]]];
     }
 
+    public function testTheDeclaredPlatformIntegerLimitDoesNotOverflowTheReadLength(): void
+    {
+        $result = $this->repository(new Response(200, [], 'fixture'))->getFileHashes('/mods/mod.jar', PHP_INT_MAX);
+        $this->assertSame(7, $result['size']);
+        $this->assertSame(hash('sha512', 'fixture'), $result['sha512']);
+    }
+
+    public function testAFileAboveTheOldPerFileCapIsHashedWithoutBufferingItAll(): void
+    {
+        $stream = tmpfile();
+        $chunk = str_repeat('fixture-', 131072);
+        $expected = hash_init('sha512');
+        try {
+            for ($index = 0; $index < 257; ++$index) {
+                fwrite($stream, $chunk);
+                hash_update($expected, $chunk);
+            }
+            unset($chunk);
+            rewind($stream);
+            $size = 257 * 1048576;
+            $response = new Response(200, ['Content-Length' => (string) $size], $stream);
+            $result = $this->repository($response)->getFileHashes('/mods/large.jar', $size);
+            $this->assertSame($size, $result['size']);
+            $this->assertSame(hash_final($expected), $result['sha512']);
+            $this->assertFalse($response->getBody()->isReadable());
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+    }
+
     #[DataProvider('oversizedResponses')]
     public function testItBoundsReadsWithAndWithoutContentLength(array $headers): void
     {

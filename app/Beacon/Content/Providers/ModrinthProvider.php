@@ -176,9 +176,9 @@ class ModrinthProvider implements ContentProvider
             throw new ProviderResponseException('Modrinth returned an invalid SHA-512 hash.');
         }
 
-        $size = (int) ($file['size'] ?? 0);
-        if ($size < 1 || $size > config('beacon.content.max_file_bytes')) {
-            throw new ProviderResponseException('Modrinth file exceeds the configured size policy.');
+        $size = $file['size'] ?? null;
+        if (!is_int($size) || $size < 1) {
+            throw new ProviderResponseException('Modrinth returned an invalid file size.');
         }
 
         return [

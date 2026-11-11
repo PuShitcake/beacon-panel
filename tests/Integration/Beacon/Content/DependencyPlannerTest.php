@@ -62,6 +62,40 @@ class DependencyPlannerTest extends IntegrationTestCase
         $this->assertSame(['root-version', 'release-version'], array_column($plan['files'], 'version_id'));
     }
 
+    public function testModAndPluginPlansCanExceedTheFormerPerFileAndTotalByteCaps(): void
+    {
+        config()->set('beacon.content.max_file_bytes', 1);
+        config()->set('beacon.content.max_total_bytes', 1);
+        foreach ([['mod', 'forge'], ['plugin', 'paper']] as [$type, $loader]) {
+            $root = $this->version('root', 'root-project', 'root.jar', [['dependency_type' => 'required', 'version_id' => 'child', 'project_id' => 'child-project']]);
+            $child = $this->version('child', 'child-project', 'child.jar');
+            foreach (['root', 'child'] as $key) {
+                ${$key}['project_type'] = $type;
+                ${$key}['loaders'] = [$loader];
+                ${$key}['file']['size'] = 5368709120;
+            }
+            $provider = \Mockery::mock(ContentProvider::class);
+            $provider->expects('version')->with('root')->andReturn($root);
+            $provider->expects('version')->with('child')->andReturn($child);
+            $plan = (new DependencyPlanner($provider))->handle('root', '1.21.8', $loader, $type);
+            $this->assertSame(10737418240, $plan['total_bytes']);
+            $this->assertCount(2, $plan['files']);
+        }
+    }
+
+    public function testRemovingTheProductCapDoesNotAllowIntegerOverflowInTotals(): void
+    {
+        $root = $this->version('root', 'root-project', 'root.jar', [['dependency_type' => 'required', 'version_id' => 'child', 'project_id' => 'child-project']]);
+        $root['file']['size'] = PHP_INT_MAX;
+        $child = $this->version('child', 'child-project', 'child.jar');
+        $provider = \Mockery::mock(ContentProvider::class);
+        $provider->expects('version')->with('root')->andReturn($root);
+        $provider->expects('version')->with('child')->andReturn($child);
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\ConflictHttpException::class);
+        $this->expectExceptionMessage('unrepresentable');
+        (new DependencyPlanner($provider))->handle('root', '1.21.8', 'paper', 'plugin');
+    }
+
     private function version(string $id, string $projectId, string $filename, array $dependencies = []): array
     {
         return [

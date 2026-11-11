@@ -186,23 +186,19 @@ jq -e 'type == "object" and (.archive.url | type == "string") and (.install_mode
 
 URL="$(jq -r '.archive.url' "${MANIFEST}")"
 MODE="$(jq -r '.install_mode' "${MANIFEST}")"
-MAX_BYTES="$(jq -r '.max_archive_bytes' "${MANIFEST}")"
-MAX_EXTRACTED_BYTES="$(jq -r '.max_extracted_bytes' "${MANIFEST}")"
 MINECRAFT_VERSION="$(jq -r '.minecraft_version // empty' "${MANIFEST}")"
 LOADER="$(jq -r '.loader // empty' "${MANIFEST}")"
 LOADER_VERSION="$(jq -r '.loader_version // empty' "${MANIFEST}")"
 [[ "${URL}" == https://* ]] || fail "Only HTTPS downloads are allowed."
-[[ "${MAX_BYTES}" =~ ^[0-9]+$ ]] || fail "Invalid archive size policy."
-[[ "${MAX_EXTRACTED_BYTES}" =~ ^[0-9]+$ ]] || fail "Invalid extracted size policy."
 [[ "${MODE}" == "archive" || "${MODE}" == "modrinth" || "${MODE}" == "ftb" ]] || fail "Unsupported installation mode."
 
 rm -rf "${WORK}"
 mkdir -p "${WORK}" "${STAGING}"
 curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --tlsv1.2 \
-    --connect-timeout 30 --max-time 1800 --max-filesize "${MAX_BYTES}" --output "${ARCHIVE}" "${URL}" \
+    --connect-timeout 30 --max-time 1800 --output "${ARCHIVE}" "${URL}" \
     || fail "The provider download failed."
 SIZE="$(stat -c%s "${ARCHIVE}")"
-(( SIZE > 0 && SIZE <= MAX_BYTES )) || fail "The downloaded archive exceeds the configured size policy."
+(( SIZE > 0 )) || fail "The provider returned an empty archive."
 
 if jq -e '.archive.sha512 != null' "${MANIFEST}" >/dev/null; then
     EXPECTED="$(jq -r '.archive.sha512' "${MANIFEST}")"
@@ -215,21 +211,18 @@ elif jq -e '.archive.sha1 != null' "${MANIFEST}" >/dev/null; then
 fi
 
 safe_extract() {
-    python3 - "$1" "$2" "${MAX_EXTRACTED_BYTES}" <<'PY'
+    python3 - "$1" "$2" <<'PY'
 import os
 import pathlib
 import stat
 import sys
 import zipfile
 
-archive, destination, maximum_size = sys.argv[1:]
-maximum_size = int(maximum_size)
+archive, destination = sys.argv[1:]
 root = pathlib.Path(destination).resolve()
 with zipfile.ZipFile(archive) as source:
     if len(source.infolist()) > 100000:
         raise RuntimeError("archive contains too many entries")
-    if sum(item.file_size for item in source.infolist()) > maximum_size:
-        raise RuntimeError("archive expands beyond the safety limit")
     for item in source.infolist():
         target = (root / item.filename).resolve()
         if root != target and root not in target.parents:
@@ -237,8 +230,8 @@ with zipfile.ZipFile(archive) as source:
         mode = item.external_attr >> 16
         if stat.S_ISLNK(mode):
             raise RuntimeError("archive contains a symbolic link")
-        if item.file_size > 2 * 1024 * 1024 * 1024:
-            raise RuntimeError("archive entry exceeds the safety limit")
+        if item.file_size > max(1024 * 1024, item.compress_size * 200):
+            raise RuntimeError("archive contains an unsafe compression ratio")
     source.extractall(root)
 PY
 }
@@ -272,7 +265,6 @@ elif [[ "${MODE}" == "modrinth" ]]; then
             break
         fi
     done
-    DOWNLOADED_BYTES=0
     while IFS= read -r item; do
         PATH_VALUE="$(jq -r '.path' <<<"${item}")"
         DOWNLOAD_URL="$(jq -r '.downloads[0]' <<<"${item}")"
@@ -288,7 +280,7 @@ PY
         TARGET="${SERVER_ROOT}/${PATH_VALUE}"
         mkdir -p "$(dirname "${TARGET}")"
         curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' --tlsv1.2 \
-            --connect-timeout 30 --max-time 1800 --max-filesize "${MAX_BYTES}" --output "${TARGET}.part" "${DOWNLOAD_URL}" \
+            --connect-timeout 30 --max-time 1800 --output "${TARGET}.part" "${DOWNLOAD_URL}" \
             || fail "A Modrinth file download failed."
         if jq -e '.hashes.sha512 != null' <<<"${item}" >/dev/null; then
             EXPECTED="$(jq -r '.hashes.sha512' <<<"${item}")"
@@ -296,8 +288,7 @@ PY
             [[ "${ACTUAL}" == "${EXPECTED}" ]] || fail "A Modrinth file hash did not match."
         fi
         FILE_BYTES="$(stat -c%s "${TARGET}.part")"
-        DOWNLOADED_BYTES=$((DOWNLOADED_BYTES + FILE_BYTES))
-        (( DOWNLOADED_BYTES <= MAX_EXTRACTED_BYTES )) || fail "The Modrinth files exceed the extracted size policy."
+        (( FILE_BYTES > 0 )) || fail "A Modrinth file download was empty."
         mv "${TARGET}.part" "${TARGET}"
     done < <(jq -c '.files[]' "${INDEX}")
     [[ ! -d "${STAGING}/overrides" ]] || cp -a "${STAGING}/overrides/." "${SERVER_ROOT}/"
